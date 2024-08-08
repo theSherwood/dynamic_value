@@ -172,18 +172,16 @@ type
 
   ImValueKind* = enum
     # Immediate Kinds
-    kNaN
     kNil
     kBool
     kNumber           # like js, we just have a float64 number type
-    kAtom
     # Heap Kinds
+    kSymbol
     kString
-    kBigNum
+    # kBigNum
     kArray
     kMap
     kSet
-    kSymbol
   
 when c32:
   type ImValue* = object
@@ -212,7 +210,6 @@ type
   ImSetPayloadRef*    = ref ImSetPayload
   ImSymbolPayloadRef* = ref ImSymbolPayload
 
-  ImNaN*    = distinct uint64
   ImNil*    = distinct uint64
   ImBool*   = distinct uint64
   ImAtom*   = distinct uint64
@@ -246,7 +243,7 @@ else:
     ImSymbol* = MaskedRef[ImSymbolPayload]
 
 type
-  ImSV* = ImNaN or ImNil or ImBool or ImAtom
+  ImSV* = ImNil or ImBool or ImAtom
   ImHV* = ImString or ImArray or ImMap or ImSet or ImSymbol
   ImV* = ImSV or ImHV
 
@@ -342,7 +339,7 @@ when c32:
   const MASK_TYPE_ATOM   = 0b00000000000000100000000000000000'u32
 
   const MASK_TYPE_STR    = 0b10000000000000010000000000000000'u32
-  const MASK_TYPE_BIGNUM = 0b10000000000000100000000000000000'u32
+  # const MASK_TYPE_BIGNUM = 0b10000000000000100000000000000000'u32
   const MASK_TYPE_ARR    = 0b10000000000000110000000000000000'u32
   const MASK_TYPE_SET    = 0b10000000000001000000000000000000'u32
   const MASK_TYPE_MAP    = 0b10000000000001010000000000000000'u32
@@ -364,7 +361,7 @@ else:
   const MASK_TYPE_ATOM   = 0b00000000000000100000000000000000'u64 shl 32
 
   const MASK_TYPE_STR    = 0b10000000000000010000000000000000'u64 shl 32
-  const MASK_TYPE_BIGNUM = 0b10000000000000100000000000000000'u64 shl 32
+  # const MASK_TYPE_BIGNUM = 0b10000000000000100000000000000000'u64 shl 32
   const MASK_TYPE_ARR    = 0b10000000000000110000000000000000'u64 shl 32
   const MASK_TYPE_SET    = 0b10000000000001000000000000000000'u64 shl 32
   const MASK_TYPE_MAP    = 0b10000000000001010000000000000000'u64 shl 32
@@ -377,9 +374,8 @@ const MASK_SIG_NIL     = MASK_EXP_OR_Q or MASK_TYPE_NIL
 const MASK_SIG_FALSE   = MASK_EXP_OR_Q or MASK_TYPE_FALSE
 const MASK_SIG_TRUE    = MASK_EXP_OR_Q or MASK_TYPE_TRUE
 const MASK_SIG_BOOL    = MASK_EXP_OR_Q or MASK_TYPE_BOOL
-const MASK_SIG_ATOM    = MASK_EXP_OR_Q or MASK_TYPE_ATOM
 const MASK_SIG_STR     = MASK_EXP_OR_Q or MASK_TYPE_STR
-const MASK_SIG_BIGNUM  = MASK_EXP_OR_Q or MASK_TYPE_BIGNUM
+# const MASK_SIG_BIGNUM  = MASK_EXP_OR_Q or MASK_TYPE_BIGNUM
 const MASK_SIG_ARR     = MASK_EXP_OR_Q or MASK_TYPE_ARR
 const MASK_SIG_SET     = MASK_EXP_OR_Q or MASK_TYPE_SET
 const MASK_SIG_MAP     = MASK_EXP_OR_Q or MASK_TYPE_MAP
@@ -420,12 +416,10 @@ template is_nil*(v: typed): bool =
   bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_NIL
 template is_bool*(v: typed): bool =
   bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_BOOL
-template is_atom*(v: typed): bool =
-  bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_ATOM
 template is_string*(v: typed): bool =
   bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_STR
-template is_bignum*(v: typed): bool =
-  bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_BIGNUM
+# template is_bignum*(v: typed): bool =
+  # bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_BIGNUM
 template is_array*(v: typed): bool =
   bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_ARR
 template is_set*(v: typed): bool =
@@ -444,9 +438,8 @@ proc get_type*(v: ImValue): ImValueKind =
   case signature:
     of MASK_SIG_NIL:    return kNil
     of MASK_SIG_BOOL:   return kBool
-    of MASK_SIG_ATOM:   return kAtom
     of MASK_SIG_STR:    return kString
-    of MASK_SIG_BIGNUM: return kBigNum
+    # of MASK_SIG_BIGNUM: return kBigNum
     of MASK_SIG_ARR:    return kArray
     of MASK_SIG_SET:    return kSet
     of MASK_SIG_MAP:    return kMap

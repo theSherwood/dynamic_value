@@ -1,6 +1,13 @@
-# differential_dataflow
+# dynamic_value
 
-## Build
+Provides a dynamic value type that is basically a thin wrapper over my [persistent](https://github.com/theSherwood/persistent) lib to provide Clojure-like values. Compiles to 64-bit native or 32-bit webassembly.
+
+**Disclaimer**: This was written using the Nimskull compiler, which has not reached a stable version and, as of the time of this writing, continues to see rapid changes. There are already several differences between the Nimskull and Nim compilers. As such, if you wish to use any of this code... good luck!
+
+## Usage
+
+
+## Scripts and commands
 
 ### Build Native
 
@@ -64,8 +71,32 @@ OR
 ./run.sh -tur browser32
 ```
 
-## Benchmark
+### Benchmark
 
 ```sh
 ./run.sh -bur
 ```
+
+## State
+
+Currently, no mutable values are supported. All heap-based collections are persistent data structures.
+
+Currently supported types:
+
+- Nil
+- Number   - 64-bit float
+- Bool
+- Symbol   - unique reference value
+- String
+- Array
+- Map
+- Set
+
+The code is something of a mess at the moment.
+
+### TODO
+
+- [ ] mutable collections
+- [ ] user-defined types
+- [ ] add Rope-like persistent strings
+  - the current string is just a wrapper over Nimskull strings
