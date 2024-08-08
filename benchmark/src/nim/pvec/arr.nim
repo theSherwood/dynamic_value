@@ -3,9 +3,9 @@ import std/[sequtils]
 import ../../../../src/persistent/vec
 import ../common
 
-proc setup_seq_of_pvec_arrs*(sz, it, offset: int): seq[PVecRef[int]] =
+proc setup_seq_of_pvec_arrs*(sz, it, offset: int): seq[VecRef[int]] =
   var i_off, k: int
-  var a: PVecRef[int]
+  var a: VecRef[int]
   for i in 0..<it:
     i_off = i + offset
     a = [i_off].to_vec
@@ -13,10 +13,10 @@ proc setup_seq_of_pvec_arrs*(sz, it, offset: int): seq[PVecRef[int]] =
       k = i_off + (j * 17)
       a = a.add(k)
     result.add(a)
-template setup_seq_of_pvec_arrs*(sz, it: int): seq[PVecRef[int]] = setup_seq_of_pvec_arrs(sz, it, 0)
+template setup_seq_of_pvec_arrs*(sz, it: int): seq[VecRef[int]] = setup_seq_of_pvec_arrs(sz, it, 0)
 
 proc pvec_arr_create*(tr: TaskResult, sz, n: int) =
-  var arrs: seq[PVecRef[int]] = @[]
+  var arrs: seq[VecRef[int]] = @[]
   let Start = get_time()
   for i in 0..<n:
     arrs.add([i].to_vec)

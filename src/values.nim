@@ -12,8 +12,8 @@
 import std/[tables, sets, bitops, strutils, sequtils, strformat, macros]
 import hashes
 # import persistent/[sumtree]
-import persistent/vec except `==`
-import persistent/map except `==`
+import ../submodules/persistent/src/vec except `==`
+import ../submodules/persistent/src/map except `==`
 
 ## # Immutable Value Types
 ## =======================
@@ -200,9 +200,9 @@ type
   ImStringPayload* = object
     hash: Hash
     data: string
-  ImArrayPayload* = PVec[ImValue]
-  ImMapPayload* = PMap[ImValue, ImValue]
-  ImSetPayload* = PSet[ImValue]
+  ImArrayPayload* = Vec[ImValue]
+  ImMapPayload* = Map[ImValue, ImValue]
+  ImSetPayload* = Set[ImValue]
   ImSymbolPayload* = object
     id: uint
     data: string
@@ -271,8 +271,8 @@ func `==`*(f: float64, v: ImV): bool
 
 ## Import the `==` of the persistent collections so that they can "see" the
 ## forward declarations of this module.
-from persistent/vec import `==`
-from persistent/map import `==`
+from ../submodules/persistent/src/vec import `==`
+from ../submodules/persistent/src/map import `==`
 
 ## Forward declare this so that we make sure the same hash function is always
 ## used for every operation involving ImValue

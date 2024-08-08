@@ -1,0 +1,3 @@
+[submodule "persistent"]
+	path = submodules/persistent
+	url = https://github.com/theSherwood/persistent.git

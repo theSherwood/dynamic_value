@@ -2,9 +2,9 @@ import std/[sequtils]
 import ../../../../src/persistent/map
 import ../common
 
-proc setup_seq_of_pmaps*(sz, it, offset: int): seq[PMapRef[int, int]] =
+proc setup_seq_of_pmaps*(sz, it, offset: int): seq[MapRef[int, int]] =
   var i_off, k: int
-  var m: PMapRef[int, int]
+  var m: MapRef[int, int]
   for i in 0..<it:
     i_off = i + offset
     m = [(i_off, i_off)].to_map
@@ -12,11 +12,11 @@ proc setup_seq_of_pmaps*(sz, it, offset: int): seq[PMapRef[int, int]] =
       k = i_off + (j * 17)
       m = m.add(k, k)
     result.add(m)
-template setup_seq_of_pmaps*(sz, it: int): seq[PMapRef[int, int]] = setup_seq_of_pmaps(sz, it, 0)
+template setup_seq_of_pmaps*(sz, it: int): seq[MapRef[int, int]] = setup_seq_of_pmaps(sz, it, 0)
 
 proc pmap_create*(tr: TaskResult, sz, n: int) =
   let Start = get_time()
-  var maps: seq[PMapRef[int, int]] = @[]
+  var maps: seq[MapRef[int, int]] = @[]
   for i in 0..<n:
     maps.add({i: i}.to_map)
   tr.add(get_time() - Start)
@@ -66,8 +66,8 @@ proc pmap_del_entry*(tr: TaskResult, sz, n: int) =
 #   # setup
 #   var maps1 = setup_seq_of_pmaps(sz, n)
 #   var maps2 = setup_seq_of_pmaps(sz, n, 3)
-#   var maps3: seq[PMapRef[int, int]] = @[]
-#   var m: PMapRef[int, int]
+#   var maps3: seq[MapRef[int, int]] = @[]
+#   var m: MapRef[int, int]
 #   # test
 #   let Start = get_time()
 #   for i in 0..<n:
