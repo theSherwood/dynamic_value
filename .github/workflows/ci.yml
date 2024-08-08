@@ -1,0 +1,147 @@
+# refer to https://github.com/disruptek/balls/blob/main/.github/workflows/ci.yml
+
+name: CI
+
+on:
+  push:
+    branches:
+      - '*'
+
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  changes:
+    # Disable the filter on scheduled runs because we don't want to skip those
+    if: github.event_name != 'schedule'
+    continue-on-error: true # Makes sure errors won't stop us
+    runs-on: ubuntu-latest
+    outputs:
+      src: ${{ steps.filter.outputs.src }}
+    steps:
+      # For PRs the path filter check with Github API, so no need to checkout
+      # for them.
+      - if: github.event_name != 'pull_request'
+        name: Checkout (if not PR)
+        uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            src:
+              - '**.cfg'
+              - '**.nims'
+              - '**.nim'
+              - '**.nimble'
+              - '**.js'
+              - '**.ts'
+              - '**.sh'
+              - 'tests/**'
+              - '.github/workflows/ci.yml'
+
+  build:
+    # Build if the files we care about are changed.
+    needs: changes
+    # Make sure to always run regardless of whether the filter success or not.
+    # When the filter fails there won't be an output, so checking for `false`
+    # state is better than checking for `true`.
+    #
+    # The always() function here is required for the job to always run despite
+    # what Github docs said, see: https://github.com/actions/runner/issues/491
+    if: always() && !cancelled() && needs.changes.outputs.src != 'false'
+
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        compiler:
+          - name: nimskull
+            version: "*"
+            docs: true
+        target:
+          - name: native
+          - name: wasi32
+    name: "${{ matrix.os }} (${{ matrix.compiler.name }} ${{ matrix.compiler.version }} ${{ matrix.target.name }})"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: project
+
+      - name: Compiler (nimskull)
+        id: nimskull
+        if: matrix.compiler.name == 'nimskull'
+        uses: nim-works/setup-nimskull@0.1.0
+        with:
+          nimskull-version: ${{ matrix.compiler.version }}
+
+      - name: Fetch Nimble
+        if: matrix.compiler.name == 'nimskull'
+        uses: actions/checkout@v4
+        with:
+          path: nimble
+          repository: alaviss/nimble
+          ref: nimskull
+
+      - name: Build Nimble
+        if: matrix.compiler.name == 'nimskull'
+        shell: bash
+        run: |
+          cd nimble
+          nim c -d:release -o:nimble src/nimble.nim
+          cp nimble "$NIMSKULL_BIN/nimble"
+          # Add nimble binary folder to PATH too
+          echo "$HOME/.nimble/bin" >> $GITHUB_PATH
+        env:
+          NIMSKULL_BIN: ${{ steps.nimskull.outputs.bin-path }}
+
+      - name: Dependencies
+        shell: bash
+        run: |
+          cd project
+          nimble --accept develop
+          nimble --accept install
+        env:
+          NIM: ${{ matrix.compiler.name }}
+
+      - name: Tests (native)
+        if: matrix.target.name == 'native' && matrix.compiler.name == 'nimskull'
+        shell: bash
+        run: |
+          cd project
+          # find nimbase
+          export NIMBASE=$(find /opt/hostedtoolcache/nimskull -name nimbase.h | head -n 1)
+          echo "$NIMBASE"
+          ./run.sh -tr native
+        env:
+          NIM: nim
+          CC: gcc
+
+      - name: Setup Emscripten
+        if: matrix.target.name == 'wasi32' && matrix.compiler.name == 'nimskull'
+        uses: mymindstorm/setup-emsdk@v14
+
+      - name: Setup Node
+        if: matrix.target.name == 'wasi32' && matrix.compiler.name == 'nimskull'
+        uses: actions/setup-node@v4
+
+      - name: Tests (wasi32)
+        if: matrix.target.name == 'wasi32' && matrix.compiler.name == 'nimskull'
+        shell: bash
+        run: |
+          emcc -v
+          cd project
+          npm install
+          # find nimbase
+          export NIMBASE=$(find /opt/hostedtoolcache/nimskull -name nimbase.h | head -n 1)
+          echo "$NIMBASE"
+          ./run.sh -tr node32
+        env:
+          EMSCRIPTEN: emcc
+          NIM: nim
+          CC: gcc

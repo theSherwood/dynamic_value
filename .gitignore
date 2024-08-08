@@ -1,0 +1,23 @@
+nimcache/
+nimblecache/
+htmldocs/
+dist/
+
+# ignore files with no extention:
+*
+!*/
+!*.*
+
+# normal ignores:
+*.exe
+nimcache
+*.pdb
+*.ilk
+tmp
+node_modules
+dist
+.vscode
+
+scratch.*
+profile_results.*
+scripts/user_settings.sh

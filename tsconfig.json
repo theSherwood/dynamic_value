@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["esnext"],
+    "target": "ESNext",
+    "types": ["vite/client"],
+    "isolatedModules": true
+  }
+}
