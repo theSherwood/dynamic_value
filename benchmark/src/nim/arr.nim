@@ -3,22 +3,22 @@ import std/[sequtils]
 import ../../../src/[values]
 import ./common
 
-proc setup_seq_of_arrs*(sz, it, offset: int): seq[ImValue] =
+proc setup_seq_of_arrs*(sz, it, offset: int): seq[Value] =
   var i_off, k: int
   var
-    a: ImArray
-    s: seq[ImValue]
+    a: VVec
+    s: seq[Value]
   for i in 0..<it:
     i_off = i + offset
-    s = newSeq[ImValue](sz)
+    s = newSeq[Value](sz)
     for j in 0..<sz:
       s[j] = (i_off + (j * 17)).v
-    a = Arr(s)
+    a = Vec(s)
     result.add(a.v)
-template setup_seq_of_arrs*(sz, it: int): seq[ImValue] = setup_seq_of_arrs(sz, it, 0)
+template setup_seq_of_arrs*(sz, it: int): seq[Value] = setup_seq_of_arrs(sz, it, 0)
 
 proc arr_create*(tr: TaskResult, sz, n: int) =
-  var arrs: seq[ImValue] = @[]
+  var arrs: seq[Value] = @[]
   let Start = get_time()
   for i in 0..<n:
     arrs.add(V [i])
@@ -81,8 +81,8 @@ proc arr_set*(tr: TaskResult, sz, n: int) =
 proc arr_iter*(tr: TaskResult, sz, n: int) =
   # setup
   var arrs = setup_seq_of_arrs(sz, n)
-  var iters: seq[seq[ImValue]] = @[]
-  var vals: seq[ImValue]
+  var iters: seq[seq[Value]] = @[]
+  var vals: seq[Value]
   # test
   let Start = get_time()
   for i in 0..<n:

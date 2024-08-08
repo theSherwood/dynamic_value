@@ -166,13 +166,13 @@ proc main* =
   suite "array":
     test "init":
       var
-        a1 = Arr []
-        a2 = Arr []
-        a3 = Arr()
+        a1 = Vec []
+        a2 = Vec []
+        a3 = Vec()
       check a1 == a2
       check a3 == a2
     test "get":
-      var a1 = Arr([1, 3, 9.7])
+      var a1 = Vec([1, 3, 9.7])
       check a1.size == 3
       check a1[0] == 1.0.v
       check a1[100] == Nil.v
@@ -181,7 +181,7 @@ proc main* =
       check a1[3.0] == Nil.v
     test "set":
       var
-        a1 = Arr([1, 3, 9.7])
+        a1 = Vec([1, 3, 9.7])
         a2 = a1.set(1, 11.5.v)
         a3 = a2.set(1, 3.0.v)
       check a1 != a2
@@ -195,19 +195,19 @@ proc main* =
       check a2[1] == 11.5.v
     test "concat":
       var
-        a1 = Arr [1, 2, 3]
+        a1 = Vec [1, 2, 3]
         a3 = a1.concat(a1)
         a4 = a1 & a1
       check a3 == a4
       check a3.size == 6
     test "nested":
       var
-        a1 = Arr [1, 2]
-        a2 = Arr [a1, a1, 3]
+        a1 = Vec [1, 2]
+        a2 = Vec [a1, a1, 3]
         a3 = a2.set(0, a2.v)
       check a3[0].v == a2.v
       check a2[0] == a2[1]
-      check a2[0].as_arr[0] == 1.0.v
+      check a2[0].as_vec[0] == 1.0.v
 
   suite "set":
     test "simple":
@@ -234,7 +234,7 @@ proc main* =
         s2 = V {a1, a2, m1, m2, "foo", "bar"}
         s3 = V {s1, s2}
         s4 = V {s1}
-      # for v in Arr [a1, a2, m1, m2, s1, s2, s3, s4]:
+      # for v in Vec [a1, a2, m1, m2, s1, s2, s3, s4]:
       #   echo "hash: ", v.hash.to_hex
       check s1 == s2
       check s1.size == s2.size
@@ -279,10 +279,10 @@ proc main* =
     test "equality":
       var
         m1 = Map {1: 2}
-        a1 = Arr [m1, m1]
+        a1 = Vec [m1, m1]
         s1 = Set {m1, a1}
         m2 = Map {m1: s1, a1: m1, s1: a1}
-        a2 = Arr [m1, a1, s1, m2]
+        a2 = Vec [m1, a1, s1, m2]
         s2 = Set {m1, a1, s1, m2, a2}
         vm1 = V {1: 2}
         va1 = V [m1, m1]
@@ -301,10 +301,10 @@ proc main* =
     test "get_in":
       var
         m1 = Map {1: 2}
-        a1 = Arr [m1, m1]
+        a1 = Vec [m1, m1]
         s1 = Set {m1, a1}
         m2 = Map {m1: s1, a1: m1, s1: a1}
-        a2 = Arr [m1, a1, s1, m2]
+        a2 = Vec [m1, a1, s1, m2]
         s2 = Set {m1, a1, s1, m2, a2}
       check get_in(s2.v, [s2.v, m2.v]) == Nil.v
       check get_in(s2.v, [a2.v]) == a2.v
@@ -315,9 +315,9 @@ proc main* =
     test "set_in":
       var
         m1 = Map {1: 2}
-        a1 = Arr [m1, m1]
+        a1 = Vec [m1, m1]
         m2 = Map {m1: a1, a1: m1}
-        a2 = Arr [m1, a1, m2]
+        a2 = Vec [m1, a1, m2]
         # the path exists until the last key (excl)
         a3 = a2.v.set_in([2.0.v, m1.v, 1.0.v, 3.0.v], 4.0.v)
         # the path exists until the last key (excl) but we set to Nil

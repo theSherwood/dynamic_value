@@ -2,9 +2,9 @@ import std/[sequtils]
 import ../../../src/[values]
 import ./common
 
-proc setup_seq_of_maps*(sz, it, offset: int): seq[ImValue] =
+proc setup_seq_of_maps*(sz, it, offset: int): seq[Value] =
   var i_off, k: int
-  var m: ImMap
+  var m: VMap
   for i in 0..<it:
     i_off = i + offset
     m = Map {i_off: i_off}
@@ -12,21 +12,21 @@ proc setup_seq_of_maps*(sz, it, offset: int): seq[ImValue] =
       k = i_off + (j * 17)
       m = m.set(k, k)
     result.add(m.v)
-template setup_seq_of_maps*(sz, it: int): seq[ImValue] = setup_seq_of_maps(sz, it, 0)
+template setup_seq_of_maps*(sz, it: int): seq[Value] = setup_seq_of_maps(sz, it, 0)
 
-proc force_copy*(m: ImMap): ImMap =
+proc force_copy*(m: VMap): VMap =
   let sz = m.size
   result = m.set(-1, -1).del(-1)
   if result.size != sz:
     debugecho sz, " ", result.size
     debugecho m
   doAssert result.size == sz
-proc copy_maps*(maps: seq[ImValue]): seq[ImValue] =
-  return maps.map(proc (m: ImValue): ImValue = m.as_map.force_copy.v)
+proc copy_maps*(maps: seq[Value]): seq[Value] =
+  return maps.map(proc (m: Value): Value = m.as_map.force_copy.v)
 
 proc map_create*(tr: TaskResult, sz, n: int) =
   let Start = get_time()
-  var maps: seq[ImValue] = @[]
+  var maps: seq[Value] = @[]
   for i in 0..<n:
     maps.add(V {i:i})
   tr.add(get_time() - Start)
@@ -76,7 +76,7 @@ proc map_merge*(tr: TaskResult, sz, n: int) =
   # setup
   var maps1 = setup_seq_of_maps(sz, n)
   var maps2 = setup_seq_of_maps(sz, n, 3)
-  var maps3: seq[ImValue] = @[]
+  var maps3: seq[Value] = @[]
   # test
   let Start = get_time()
   for i in 0..<n:
@@ -108,30 +108,30 @@ proc map_has_key_false*(tr: TaskResult, sz, n: int) =
 proc map_get_existing*(tr: TaskResult, sz, n: int) =
   # setup
   var maps = setup_seq_of_maps(sz, n)
-  var vals: seq[ImValue] = @[]
+  var vals: seq[Value] = @[]
   # test
   let Start = get_time()
   for i in 0..<n:
     vals.add(maps[i][i])
   tr.add(get_time() - Start)
-  doAssert vals.all(proc (v: ImValue): bool = v != Nil.v)
+  doAssert vals.all(proc (v: Value): bool = v != Nil.v)
 
 proc map_get_non_existing*(tr: TaskResult, sz, n: int) =
   # setup
   var maps = setup_seq_of_maps(sz, n)
-  var vals: seq[ImValue] = @[]
+  var vals: seq[Value] = @[]
   # test
   let Start = get_time()
   for i in 0..<n:
     vals.add(maps[i][i + 1])
   tr.add(get_time() - Start)
-  doAssert vals.all(proc (v: ImValue): bool = v == Nil.v)
+  doAssert vals.all(proc (v: Value): bool = v == Nil.v)
 
 proc map_iter_keys*(tr: TaskResult, sz, n: int) =
   # setup
   var maps = setup_seq_of_maps(sz, n)
-  var iters: seq[seq[ImValue]] = @[]
-  var vals: seq[ImValue]
+  var iters: seq[seq[Value]] = @[]
+  var vals: seq[Value]
   # test
   let Start = get_time()
   for i in 0..<n:
@@ -143,8 +143,8 @@ proc map_iter_keys*(tr: TaskResult, sz, n: int) =
 proc map_iter_values*(tr: TaskResult, sz, n: int) =
   # setup
   var maps = setup_seq_of_maps(sz, n)
-  var iters: seq[seq[ImValue]] = @[]
-  var vals: seq[ImValue]
+  var iters: seq[seq[Value]] = @[]
+  var vals: seq[Value]
   # test
   let Start = get_time()
   for i in 0..<n:
@@ -156,8 +156,8 @@ proc map_iter_values*(tr: TaskResult, sz, n: int) =
 proc map_iter_entries*(tr: TaskResult, sz, n: int) =
   # setup
   var maps = setup_seq_of_maps(sz, n)
-  var iters: seq[seq[(ImValue, ImValue)]] = @[]
-  var vals: seq[(ImValue, ImValue)]
+  var iters: seq[seq[(Value, Value)]] = @[]
+  var vals: seq[(Value, Value)]
   # test
   let Start = get_time()
   for i in 0..<n:

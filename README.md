@@ -83,12 +83,12 @@ Currently, no mutable values are supported. All heap-based collections are persi
 
 Currently supported types:
 
-- Nil
-- Number   - 64-bit float
 - Bool
-- Symbol   - unique reference value
-- String
-- Array
+- Nil
+- Num      - 64-bit float
+- Sym   - unique reference value
+- Str
+- Vec
 - Map
 - Set
 

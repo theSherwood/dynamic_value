@@ -1,6 +1,6 @@
 import deep_eq from "deep-equal";
 import { produce } from "immer";
-import { Map as ImMap } from "immutable";
+import { Map as VMap } from "immutable";
 import { strict as assert } from "node:assert";
 import { get_time } from "./common.js";
 
@@ -24,7 +24,7 @@ export function setup_arr_of_immutable_maps(sz, n, offset = 0) {
   let i_off, k;
   for (let i = 0; i < n; i++) {
     i_off = i + offset;
-    let map = ImMap({ [i_off]: i_off });
+    let map = VMap({ [i_off]: i_off });
     for (let j = 1; j < sz; j++) {
       k = i_off + j * 17;
       map = map.set(k, k);
@@ -51,7 +51,7 @@ export function immutable_map_create(tr, sz, n) {
   let start = get_time();
   let maps = [];
   for (let i = 0; i < n; i++) {
-    maps.push(ImMap({ i: i }));
+    maps.push(VMap({ i: i }));
   }
   tr.runs.push(get_time() - start);
 }

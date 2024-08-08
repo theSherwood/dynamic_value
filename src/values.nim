@@ -1,13 +1,13 @@
 ## TODO
 ## 
 ## -[ ] add Infinity, -Infinity
-## -[ ] add a converter from int to ImValue
+## -[ ] add a converter from int to Value
 ## -[ ] add an ability to push onto the end of an array
 ## -[ ] differentiate between inner api and outer api
 ##   - Eg.
-##     - proc inner_contains(v1, v2: ImValue): bool
-##     - proc outer_contains(v1, v2: ImValue): ImValue
-## -[ ] find a way to not have to reimplement iterators (eg, for ImMap as well as ImValue)
+##     - proc inner_contains(v1, v2: Value): bool
+##     - proc outer_contains(v1, v2: Value): Value
+## -[ ] find a way to not have to reimplement iterators (eg, for VMap as well as Value)
 
 import std/[tables, sets, bitops, strutils, sequtils, strformat, macros]
 import hashes
@@ -170,81 +170,79 @@ const c32 = defined(cpu32)
 type
   TypeException* = object of CatchableError
 
-  ImValueKind* = enum
+  ValueKind* = enum
     # Immediate Kinds
     kNil
     kBool
-    kNumber           # like js, we just have a float64 number type
+    kNum           # like js, we just have a float64 number type
     # Heap Kinds
-    kSymbol
-    kString
-    # kBigNum
-    kArray
+    kSym
+    kStr
+    kVec
     kMap
     kSet
   
 when c32:
-  type ImValue* = object
+  type Value* = object
     tail: uint32
     head: uint32
 
-  proc `=destroy`(x: var ImValue)
-  proc `=copy`(x: var ImValue, y: ImValue)
+  proc `=destroy`(x: var Value)
+  proc `=copy`(x: var Value, y: Value)
 
 else:
-  type ImValue* = distinct uint64
+  type Value* = distinct uint64
 
 type
-  ImStringPayload* = object
+  VStrPayload* = object
     hash: Hash
     data: string
-  ImArrayPayload* = Vec[ImValue]
-  ImMapPayload* = Map[ImValue, ImValue]
-  ImSetPayload* = Set[ImValue]
-  ImSymbolPayload* = object
+  VVecPayload* = Vec[Value]
+  VMapPayload* = Map[Value, Value]
+  VSetPayload* = Set[Value]
+  VSymPayload* = object
     id: uint
     data: string
-  ImStringPayloadRef* = ref ImStringPayload
-  ImArrayPayloadRef*  = ref ImArrayPayload
-  ImMapPayloadRef*    = ref ImMapPayload
-  ImSetPayloadRef*    = ref ImSetPayload
-  ImSymbolPayloadRef* = ref ImSymbolPayload
+  VStrPayloadRef* = ref VStrPayload
+  VVecPayloadRef* = ref VVecPayload
+  VMapPayloadRef* = ref VMapPayload
+  VSetPayloadRef* = ref VSetPayload
+  VSymPayloadRef* = ref VSymPayload
 
-  ImNil*    = distinct uint64
-  ImBool*   = distinct uint64
-  ImAtom*   = distinct uint64
+  VNil*    = distinct uint64
+  VBool*   = distinct uint64
 
 when c32:
   type
-    ImString* = object
-      tail*: ImStringPayloadRef
+    VStr* = object
+      tail*: VStrPayloadRef
       head*: uint32
-    ImArray* = object
-      tail*: ImArrayPayloadRef
+    VVec* = object
+      tail*: VVecPayloadRef
       head*: uint32
-    ImMap* = object
-      tail*: ImMapPayloadRef
+    VMap* = object
+      tail*: VMapPayloadRef
       head*: uint32
-    ImSet* = object
-      tail*: ImSetPayloadRef
+    VSet* = object
+      tail*: VSetPayloadRef
       head*: uint32
-    ImSymbol* = object
-      tail*: ImSymbolPayloadRef
+    VSym* = object
+      tail*: VSymPayloadRef
       head*: uint32
 else:
   type
     MaskedRef*[T] = object
       # distinct should work in theory, but I'm not entirely sure how well phantom types work with distinct at the moment
       p: pointer
-    ImString* = MaskedRef[ImStringPayload]
-    ImArray*  = MaskedRef[ImArrayPayload]
-    ImMap*    = MaskedRef[ImMapPayload]
-    ImSet*    = MaskedRef[ImSetPayload]
-    ImSymbol* = MaskedRef[ImSymbolPayload]
+    VStr* = MaskedRef[VStrPayload]
+    VVec* = MaskedRef[VVecPayload]
+    VMap* = MaskedRef[VMapPayload]
+    VSet* = MaskedRef[VSetPayload]
+    VSym* = MaskedRef[VSymPayload]
 
 type
-  ImSV* = ImNil or ImBool or ImAtom
-  ImHV* = ImString or ImArray or ImMap or ImSet or ImSymbol
+  ImSV* = VNil or VBool
+  ImHV* = VStr or VVec or VMap or VSet or VSym
   ImV* = ImSV or ImHV
 
 # Forward Declarations #
@@ -252,14 +250,14 @@ type
 
 ## Forward declare these so that the equality procs in the collection
 ## implementations can rely on them.
-func `==`*(v1, v2: ImValue): bool
-func `==`*(v: ImValue, f: float64): bool
-func `==`*(f: float64, v: ImValue): bool
-func `==`*(v1, v2: ImString): bool
-func `==`*(v1, v2: ImMap): bool
-func `==`*(v1, v2: ImArray): bool
-func `==`*(v1, v2: ImSet): bool
-func `==`*(v1, v2: ImSymbol): bool
+func `==`*(v1, v2: Value): bool
+func `==`*(v: Value, f: float64): bool
+func `==`*(f: float64, v: Value): bool
+func `==`*(v1, v2: VStr): bool
+func `==`*(v1, v2: VMap): bool
+func `==`*(v1, v2: VVec): bool
+func `==`*(v1, v2: VSet): bool
+func `==`*(v1, v2: VSym): bool
 func `==`*(v1, v2: ImHV): bool
 func `==`*(v1, v2: ImSV): bool
 func `==`*(v1, v2: ImV): bool
@@ -272,8 +270,8 @@ from ../submodules/persistent/src/vec import `==`
 from ../submodules/persistent/src/map import `==`
 
 ## Forward declare this so that we make sure the same hash function is always
-## used for every operation involving ImValue
-func hash*(v: ImValue): Hash
+## used for every operation involving Value
+func hash*(v: Value): Hash
 
 # Casts #
 # ---------------------------------------------------------------------
@@ -286,38 +284,38 @@ template as_i32*(v: typed): int32 = cast[int32](v)
 template as_hash*(v: typed): Hash = cast[Hash](v)
 template as_p*(v: typed): pointer = cast[pointer](v)
 template as_byte_array_8*(v: typed): array[8, byte] = cast[array[8, byte]](v)
-template as_v*(v: typed): ImValue = cast[ImValue](cast[uint64](v))
-template as_str*(v: typed): ImString = cast[ImString](cast[uint64](v))
-template as_arr*(v: typed): ImArray = cast[ImArray](cast[uint64](v))
-template as_map*(v: typed): ImMap = cast[ImMap](cast[uint64](v))
-template as_set*(v: typed): ImSet = cast[ImSet](cast[uint64](v))
-template as_sym*(v: typed): ImSymbol = cast[ImSymbol](cast[uint64](v))
+template as_v*(v: typed): Value = cast[Value](cast[uint64](v))
+template as_str*(v: typed): VStr = cast[VStr](cast[uint64](v))
+template as_vec*(v: typed): VVec = cast[VVec](cast[uint64](v))
+template as_map*(v: typed): VMap = cast[VMap](cast[uint64](v))
+template as_set*(v: typed): VSet = cast[VSet](cast[uint64](v))
+template as_sym*(v: typed): VSym = cast[VSym](cast[uint64](v))
 
 # Conversions #
 # ---------------------------------------------------------------------
 
-template v*(x: ImValue): ImValue = x
-template v*(x: ImString): ImValue = x.as_v
-template v*(x: ImSet): ImValue = x.as_v
-template v*(x: ImArray): ImValue = x.as_v
-template v*(x: ImMap): ImValue = x.as_v
-template v*(x: ImSymbol): ImValue = x.as_v
-template v*(x: ImNil): ImValue = x.as_v
-template v*(x: ImBool): ImValue = x.as_v
+template v*(x: Value): Value = x
+template v*(x: VStr): Value = x.as_v
+template v*(x: VSet): Value = x.as_v
+template v*(x: VVec): Value = x.as_v
+template v*(x: VMap): Value = x.as_v
+template v*(x: VSym): Value = x.as_v
+template v*(x: VNil): Value = x.as_v
+template v*(x: VBool): Value = x.as_v
 
 # A couple of forward declarations for the conversions
-proc init_string*(s: string = ""): ImString
-proc init_array*(init_data: openArray[ImValue]): ImArray
+proc init_string*(s: string = ""): VStr
+proc init_array*(init_data: openArray[Value]): VVec
 
-template v*(x: float64): ImValue = x.as_v
-template v*(x: int): ImValue = x.float64.v
-template v*(x: bool): ImValue = (if x: True.v else: False.v)
-template v*(x: string): ImValue = x.init_string.v
-template v*(x: openArray[int]): ImValue = toSeq(x).map(x => x.v).init_array.v
-template v*(x: openArray[float64]): ImValue = toSeq(x).map(x => x.v).init_array.v
-template v*(x: openArray[ImValue]): ImValue = x.init_array.v
+template v*(x: float64): Value = x.as_v
+template v*(x: int): Value = x.float64.v
+template v*(x: bool): Value = (if x: True.v else: False.v)
+template v*(x: string): Value = x.init_string.v
+template v*(x: openArray[int]): Value = toSeq(x).map(x => x.v).init_array.v
+template v*(x: openArray[float64]): Value = toSeq(x).map(x => x.v).init_array.v
+template v*(x: openArray[Value]): Value = x.init_array.v
 
-template to_int*(x: ImValue): int = x.as_f64.int
+template to_int*(x: Value): int = x.as_f64.int
 
 # Masks #
 # ---------------------------------------------------------------------
@@ -339,7 +337,6 @@ when c32:
   const MASK_TYPE_ATOM   = 0b00000000000000100000000000000000'u32
 
   const MASK_TYPE_STR    = 0b10000000000000010000000000000000'u32
-  # const MASK_TYPE_BIGNUM = 0b10000000000000100000000000000000'u32
   const MASK_TYPE_ARR    = 0b10000000000000110000000000000000'u32
   const MASK_TYPE_SET    = 0b10000000000001000000000000000000'u32
   const MASK_TYPE_MAP    = 0b10000000000001010000000000000000'u32
@@ -361,7 +358,6 @@ else:
   const MASK_TYPE_ATOM   = 0b00000000000000100000000000000000'u64 shl 32
 
   const MASK_TYPE_STR    = 0b10000000000000010000000000000000'u64 shl 32
-  # const MASK_TYPE_BIGNUM = 0b10000000000000100000000000000000'u64 shl 32
   const MASK_TYPE_ARR    = 0b10000000000000110000000000000000'u64 shl 32
   const MASK_TYPE_SET    = 0b10000000000001000000000000000000'u64 shl 32
   const MASK_TYPE_MAP    = 0b10000000000001010000000000000000'u64 shl 32
@@ -375,8 +371,7 @@ const MASK_SIG_FALSE   = MASK_EXP_OR_Q or MASK_TYPE_FALSE
 const MASK_SIG_TRUE    = MASK_EXP_OR_Q or MASK_TYPE_TRUE
 const MASK_SIG_BOOL    = MASK_EXP_OR_Q or MASK_TYPE_BOOL
 const MASK_SIG_STR     = MASK_EXP_OR_Q or MASK_TYPE_STR
-# const MASK_SIG_BIGNUM  = MASK_EXP_OR_Q or MASK_TYPE_BIGNUM
-const MASK_SIG_ARR     = MASK_EXP_OR_Q or MASK_TYPE_ARR
+const MASK_SIG_VEC     = MASK_EXP_OR_Q or MASK_TYPE_ARR
 const MASK_SIG_SET     = MASK_EXP_OR_Q or MASK_TYPE_SET
 const MASK_SIG_MAP     = MASK_EXP_OR_Q or MASK_TYPE_MAP
 const MASK_SIG_SYM     = MASK_EXP_OR_Q or MASK_TYPE_SYM
@@ -385,20 +380,20 @@ const MASK_SIG_SYM     = MASK_EXP_OR_Q or MASK_TYPE_SYM
 # ---------------------------------------------------------------------
 
 when c32:
-  template payload*(v: ImString): ImStringPayloadRef = v.tail
-  template payload*(v: ImMap): ImMapPayloadRef       = v.tail
-  template payload*(v: ImArray): ImArrayPayloadRef   = v.tail
-  template payload*(v: ImSet): ImSetPayloadRef       = v.tail
-  template payload*(v: ImSymbol): ImSymbolPayloadRef = v.tail
+  template payload*(v: VStr): VStrPayloadRef = v.tail
+  template payload*(v: VMap): VMapPayloadRef = v.tail
+  template payload*(v: VVec): VVecPayloadRef = v.tail
+  template payload*(v: VSet): VSetPayloadRef = v.tail
+  template payload*(v: VSym): VSymPayloadRef = v.tail
 else:
   template to_clean_ptr(v: typed): pointer =
     cast[pointer](bitand((v).as_u64, MASK_POINTER))
 
-  template payload*(v: ImString): ImStringPayloadRef = cast[ImStringPayloadRef](to_clean_ptr(v.p))
-  template payload*(v: ImMap): ImMapPayloadRef       = cast[ImMapPayloadRef](to_clean_ptr(v.p))
-  template payload*(v: ImArray): ImArrayPayloadRef   = cast[ImArrayPayloadRef](to_clean_ptr(v.p))
-  template payload*(v: ImSet): ImSetPayloadRef       = cast[ImSetPayloadRef](to_clean_ptr(v.p))
-  template payload*(v: ImSymbol): ImSymbolPayloadRef = cast[ImSymbolPayloadRef](to_clean_ptr(v.p))
+  template payload*(v: VStr): VStrPayloadRef = cast[VStrPayloadRef](to_clean_ptr(v.p))
+  template payload*(v: VMap): VMapPayloadRef = cast[VMapPayloadRef](to_clean_ptr(v.p))
+  template payload*(v: VVec): VVecPayloadRef = cast[VVecPayloadRef](to_clean_ptr(v.p))
+  template payload*(v: VSet): VSetPayloadRef = cast[VSetPayloadRef](to_clean_ptr(v.p))
+  template payload*(v: VSym): VSymPayloadRef = cast[VSymPayloadRef](to_clean_ptr(v.p))
 
 # Type Detection #
 # ---------------------------------------------------------------------
@@ -414,66 +409,64 @@ template is_num*(v: typed): bool =
   bitand(bitnot(v.type_bits), MASK_EXPONENT) != 0
 template is_nil*(v: typed): bool =
   bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_NIL
-template is_bool*(v: typed): bool =
-  bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_BOOL
-template is_string*(v: typed): bool =
+template is_str*(v: typed): bool =
   bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_STR
-# template is_bignum*(v: typed): bool =
-  # bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_BIGNUM
-template is_array*(v: typed): bool =
-  bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_ARR
+template is_vec*(v: typed): bool =
+  bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_VEC
 template is_set*(v: typed): bool =
   bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_SET
 template is_map*(v: typed): bool =
   bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_MAP
-template is_symbol*(v: typed): bool =
+template is_sym*(v: typed): bool =
   bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_SYM
+template is_bool*(v: typed): bool =
+  bitand(v.type_bits, MASK_SIGNATURE) == MASK_SIG_BOOL
 template is_heap*(v: typed): bool =
   bitand(v.type_bits, MASK_HEAP) == MASK_HEAP
 
-proc get_type*(v: ImValue): ImValueKind =
+proc get_type*(v: Value): ValueKind =
   let type_carrier = v.type_bits
-  if v.is_num: return kNumber
+  if v.is_num: return kNum
   let signature = bitand(type_carrier, MASK_SIGNATURE)
   case signature:
     of MASK_SIG_NIL:    return kNil
     of MASK_SIG_BOOL:   return kBool
-    of MASK_SIG_STR:    return kString
+    of MASK_SIG_STR:    return kStr
     # of MASK_SIG_BIGNUM: return kBigNum
-    of MASK_SIG_ARR:    return kArray
+    of MASK_SIG_VEC:    return kVec
     of MASK_SIG_SET:    return kSet
     of MASK_SIG_MAP:    return kMap
-    of MASK_SIG_SYM:    return kSymbol
+    of MASK_SIG_SYM:    return kSym
     else:               echo "Unknown Type!"
 
 # GC Hooks #
 # ---------------------------------------------------------------------
 
 when c32:
-  proc `=destroy`(x: var ImValue) =
+  proc `=destroy`(x: var Value) =
     if x.is_map:
-      GC_unref(cast[ImMapPayloadRef](x.tail))
-    elif x.is_array:
-      GC_unref(cast[ImArrayPayloadRef](x.tail))
+      GC_unref(cast[VMapPayloadRef](x.tail))
+    elif x.is_vec:
+      GC_unref(cast[VVecPayloadRef](x.tail))
     elif x.is_set:
-      GC_unref(cast[ImSetPayloadRef](x.tail))
-    elif x.is_string:
-      GC_unref(cast[ImStringPayloadRef](x.tail))
-    elif x.is_symbol:
-      GC_unref(cast[ImSymbolPayloadRef](x.tail))
-  proc `=copy`(x: var ImValue, y: ImValue) =
+      GC_unref(cast[VSetPayloadRef](x.tail))
+    elif x.is_str:
+      GC_unref(cast[VStrPayloadRef](x.tail))
+    elif x.is_sym:
+      GC_unref(cast[VSymPayloadRef](x.tail))
+  proc `=copy`(x: var Value, y: Value) =
     try:
       if x.as_u64 == y.as_u64: return
       if y.is_map:
-        GC_ref(cast[ImMapPayloadRef](y.tail))
-      elif y.is_array:
-        GC_ref(cast[ImArrayPayloadRef](y.tail))
+        GC_ref(cast[VMapPayloadRef](y.tail))
+      elif y.is_vec:
+        GC_ref(cast[VVecPayloadRef](y.tail))
       elif y.is_set:
-        GC_ref(cast[ImSetPayloadRef](y.tail))
-      elif y.is_string:
-        GC_ref(cast[ImStringPayloadRef](y.tail))
-      elif y.is_symbol:
-        GC_ref(cast[ImSymbolPayloadRef](y.tail))
+        GC_ref(cast[VSetPayloadRef](y.tail))
+      elif y.is_str:
+        GC_ref(cast[VStrPayloadRef](y.tail))
+      elif y.is_sym:
+        GC_ref(cast[VSymPayloadRef](y.tail))
       `=destroy`(x)
       x.head = y.head
       x.tail = y.tail
@@ -492,15 +485,15 @@ else:
 when c32:
   proc u64_from_mask(mask: uint32): uint64 =
     return (mask.as_u64 shl 32).as_u64
-  let Nil*   = cast[ImNil](u64_from_mask(MASK_SIG_NIL))
-  let True*  = cast[ImBool](u64_from_mask(MASK_SIG_TRUE))
-  let False* = cast[ImBool](u64_from_mask(MASK_SIG_FALSE))
+  let Nil*   = cast[VNil](u64_from_mask(MASK_SIG_NIL)).v
+  let True*  = cast[VBool](u64_from_mask(MASK_SIG_TRUE)).v
+  let False* = cast[VBool](u64_from_mask(MASK_SIG_FALSE)).v
 else:
-  let Nil*   = cast[ImNil]((MASK_SIG_NIL))
-  let True*  = cast[ImBool]((MASK_SIG_TRUE))
-  let False* = cast[ImBool]((MASK_SIG_FALSE))
+  let Nil*   = cast[VNil]((MASK_SIG_NIL)).v
+  let True*  = cast[VBool]((MASK_SIG_TRUE)).v
+  let False* = cast[VBool]((MASK_SIG_FALSE)).v
 
-template default*(v: ImValue): ImValue = Nil.v
+template default*(v: Value): Value = Nil.v
 
 let Infinity*       = Inf
 let PosInfinity*    = Inf
@@ -533,31 +526,31 @@ template eq_heap_value_generic*(v1, v2: typed) =
     else:
       let signature = bitand(v1.as_u64, MASK_SIGNATURE)
     case signature:
-      of MASK_SIG_STR:    eq_heap_payload(v1.as_str.payload, v2.as_str.payload)
-      of MASK_SIG_ARR:
-        result = v1.as_arr.payload == v2.as_arr.payload
+      of MASK_SIG_STR: eq_heap_payload(v1.as_str.payload, v2.as_str.payload)
+      of MASK_SIG_VEC:
+        result = v1.as_vec.payload == v2.as_vec.payload
       of MASK_SIG_MAP:
         result = v1.as_map.payload == v2.as_map.payload
       of MASK_SIG_SET:
         result = v1.as_set.payload == v2.as_set.payload
       of MASK_SIG_SYM:
         result = v1.as_sym.payload.id == v2.as_sym.payload.id
-      else:               discard
+      else: discard
 
-func `==`*(v1, v2: ImValue): bool =
+func `==`*(v1, v2: Value): bool =
   if bitand(MASK_HEAP, v1.type_bits) == MASK_HEAP: eq_heap_value_generic(v1, v2)
   else: return v1.as_u64 == v2.as_u64
-func `==`*(v: ImValue, f: float64): bool = return v == f.as_v
-func `==`*(f: float64, v: ImValue): bool = return v == f.as_v
+func `==`*(v: Value, f: float64): bool = return v == f.as_v
+func `==`*(f: float64, v: Value): bool = return v == f.as_v
     
-func `==`*(v1, v2: ImString): bool = eq_heap_value_specific(v1, v2)
-func `==`*(v1, v2: ImMap): bool =
+func `==`*(v1, v2: VStr): bool = eq_heap_value_specific(v1, v2)
+func `==`*(v1, v2: VMap): bool =
   return v1.payload == v2.payload
-func `==`*(v1, v2: ImArray): bool =
+func `==`*(v1, v2: VVec): bool =
   return v1.payload == v2.payload
-func `==`*(v1, v2: ImSet): bool =
+func `==`*(v1, v2: VSet): bool =
   return v1.payload == v2.payload
-func `==`*(v1, v2: ImSymbol): bool =
+func `==`*(v1, v2: VSym): bool =
   return v1.payload.id == v2.payload.id
 
 func `==`*(v1, v2: ImHV): bool = eq_heap_value_generic(v1, v2)
@@ -569,102 +562,98 @@ func `==`*(v1, v2: ImV): bool =
 func `==`*(v: ImV, f: float64): bool = return v == f.as_v
 func `==`*(f: float64, v: ImV): bool = return v == f.as_v
 
-template `==`*(v1: ImValue, v2: ImV): bool = v1.as_v == v2.as_v
-template `==`*(v1: ImV, v2: ImValue): bool = v1.as_v == v2.as_v
+template `==`*(v1: Value, v2: ImV): bool = v1.as_v == v2.as_v
+template `==`*(v1: ImV, v2: Value): bool = v1.as_v == v2.as_v
 
-proc `<`*(a, b: ImValue): bool
-proc `<=`*(a, b: ImValue): bool
+proc `<`*(a, b: Value): bool
+proc `<=`*(a, b: Value): bool
 
-template `<`*(a: float64, b: ImValue): bool = return a.v < b.v
-template `<`*(a: ImValue, b: float64): bool = return a.v < b.v
-template `<=`*(a: float64, b: ImValue): bool = return a.v <= b.v
-template `<=`*(a: ImValue, b: float64): bool = return a.v <= b.v
+template `<`*(a: float64, b: Value): bool = return a.v < b.v
+template `<`*(a: Value, b: float64): bool = return a.v < b.v
+template `<=`*(a: float64, b: Value): bool = return a.v <= b.v
+template `<=`*(a: Value, b: float64): bool = return a.v <= b.v
 
 # Automatic Conversions #
 # ---------------------------------------------------------------------
 
-converter toImValue*(n: ImNil): ImValue = n.v
-converter toImValue*(b: ImBool): ImValue = b.v
-converter toImValue*(x: ImArray): ImValue = x.v
-converter toImValue*(x: ImMap): ImValue = x.v
-converter toImValue*(x: ImString): ImValue = x.v
-converter toImValue*(x: ImSet): ImValue = x.v
-converter toImValue*(x: ImSymbol): ImValue = x.v
+converter toValue*(n: VNil): Value = n.v
+converter toValue*(x: VVec): Value = x.v
+converter toValue*(x: VMap): Value = x.v
+converter toValue*(x: VStr): Value = x.v
+converter toValue*(x: VSet): Value = x.v
+converter toValue*(x: VSym): Value = x.v
+converter toValue*(b: VBool): Value = b.v
 
-converter toImValue(f: float64): ImValue = f.v
-converter toImValue(i: int): ImValue = i.v
-converter toImValue(b: bool): ImValue = b.v
-converter toImValue(s: string): ImValue = s.v
+converter toValue(f: float64): Value = f.v
+converter toValue(i: int): Value = i.v
+converter toValue(b: bool): Value = b.v
+converter toValue(s: string): Value = s.v
 
-converter toBool*(b: ImBool): bool = b == True
-converter toBool*(n: ImNil): bool = false
+converter toBool*(n: VNil): bool = false
+converter toBool*(b: VBool): bool = b == True
 
 # Debug String Conversion #
 # ---------------------------------------------------------------------
 
 proc to_hex*(f: float64): string = return toHex(f.as_u64)
 proc to_hex*(v: ImV): string = return toHex(v.as_u64)
-proc to_hex*(v: ImValue): string = return toHex(v.as_u64)
+proc to_hex*(v: Value): string = return toHex(v.as_u64)
 proc to_bin_str*(v: ImV): string = return toBin(v.as_i64, 64)
-proc to_bin_str*(v: ImValue): string = return toBin(v.as_i64, 64)
+proc to_bin_str*(v: Value): string = return toBin(v.as_i64, 64)
 proc to_bin_str*(v: uint32): string = return toBin(v.as_i64, 32)
 proc to_bin_str*(v: int32): string = return toBin(v.as_i64, 32)
 proc to_bin_str*(v: int64): string = return toBin(v, 64)
 proc to_bin_str*(v: uint64): string = return toBin(v.as_i64, 64)
 
-proc `$`*(k: ImValueKind): string =
+proc `$`*(k: ValueKind): string =
   case k:
-    of kNumber: return "Number"
-    of kNil:    return "Nil"
-    of kString: return "String"
-    of kMap:    return "Map"
-    of kArray:  return "Array"
-    of kSet:    return "Set"
-    of kSymbol: return "Symbol"
-    of kBool:   return "Boolean"
-    else:       return "<unknown>"
+    of kNum:  return "Number"
+    of kNil:  return "Nil"
+    of kStr:  return "String"
+    of kMap:  return "Map"
+    of kVec:  return "Vector"
+    of kSet:  return "Set"
+    of kSym:  return "Symbol"
+    of kBool: return "Boolean"
+    else:     return "<unknown>"
 
-proc `$`*(v: ImValue): string =
+proc `$`*(v: Value): string =
   let kind = get_type(v)
   case kind:
-    of kNumber:           return $(v.as_f64)
+    of kNum:              return $(v.as_f64)
     of kNil:              return "Nil"
+    of kStr:              return $(v.as_str.payload.data)
+    of kMap:              return $(v.as_map.payload)
+    of kVec:              return $(v.as_vec.payload)
+    of kSet:              return $(v.as_set.payload) 
+    of kSym:              return "'" & v.as_sym.payload.data & "." & $(v.as_sym.payload.id)
     of kBool:
       if v == True.as_v:  return "True"
       if v == False.as_v: return "False"
       # TODO - type error
-    of kString:           return $(v.as_str.payload.data)
-    of kMap:              return $(v.as_map.payload)
-    of kArray:            return $(v.as_arr.payload)
-    of kSet:              return $(v.as_set.payload) 
-    of kSymbol:           return "'" & v.as_sym.payload.data & "." & $(v.as_sym.payload.id)
-    # of kString:           return "Str\"" & $(v.as_str.payload.data) & "\""
-    # of kMap:              return "M[" & $(v.as_map.payload.data) & "]"
-    # of kArray:            return "A[" & $(v.as_arr.payload.data) & "]" 
-    # of kSet:              return "S[" & $(v.as_set.payload.data) & "]" 
     else:                 discard
 
-proc debug*(v: ImValue): string =
+proc debug*(v: Value): string =
   let kind = get_type(v)
   when c32:
     let shallow_str = "( head: " & to_hex(v.head) & ", tail: " & to_hex(v.tail) & " )"
   else:
     let shallow_str = "( " & to_hex(v.as_u64) & " )"
   case kind:
-    of kNumber:           return "Num" & shallow_str
+    of kNum:              return "Num" & shallow_str
     of kNil:              return "Nil" & shallow_str
+    of kStr:              return "Str" & shallow_str
+    of kMap:              return "Map" & shallow_str
+    of kVec:              return "Vec" & shallow_str
+    of kSet:              return "Set" & shallow_str
+    of kSym:              return "Sym" & shallow_str
     of kBool:
       if v == True.as_v:  return "True" & shallow_str
       if v == False.as_v: return "False" & shallow_str
       # TODO - type error
-    of kString:           return "Str" & shallow_str
-    of kMap:              return "Map" & shallow_str
-    of kArray:            return "Arr" & shallow_str
-    of kSet:              return "Set" & shallow_str
-    of kSymbol:           return "Sym" & shallow_str
     else:                 discard
 
-template type_label*(v: ImValue): string = $(v.get_type)
+template type_label*(v: Value): string = $(v.get_type)
 
 # Hash Handling #
 # ---------------------------------------------------------------------
@@ -676,19 +665,15 @@ when c32:
 else:
   template calc_hash(i1, i2: typed): Hash = bitxor(i1.as_u64, i2.as_u64).as_hash
 
-func hash*(v: ImValue): Hash =
+func hash*(v: Value): Hash =
   if is_heap(v):
-    if is_map(v):
-      result = v.as_map.payload.hash
-    elif is_array(v):
-      result = v.as_arr.payload.summary.hash
-    elif is_set(v):
-      result = v.as_set.payload.hash
-    elif is_symbol(v):
-      result = v.as_sym.payload.id.as_hash
+    if is_map(v):   result = v.as_map.payload.hash
+    elif is_vec(v): result = v.as_vec.payload.summary.hash
+    elif is_set(v): result = v.as_set.payload.hash
+    elif is_sym(v): result = v.as_sym.payload.id.as_hash
     else:
-      # We cast to ImString so that we can get the hash, but all the ImHeapValues have a hash in the tail.
-      let vh = cast[ImString](v)
+      # We cast to VStr so that we can get the hash, but all the ImHeapValues have a hash in the tail.
+      let vh = cast[VStr](v)
       result = vh.payload.hash.as_hash
   else:
     when c32:
@@ -711,60 +696,60 @@ const INITIAL_SET_HASH = MASK_TYPE_SET.as_hash
 const INITIAL_ARR_HASH = MASK_TYPE_ARR.as_hash
 const INITIAL_MAP_HASH = MASK_TYPE_MAP.as_hash
 
-# ImString Impl #
+# VStr Impl #
 # ---------------------------------------------------------------------
 
-template buildImString(new_hash, new_data: typed) {.dirty.} =
+template buildVStr(new_hash, new_data: typed) {.dirty.} =
   when c32:
     let h = new_hash
-    var new_string = ImString(
+    var new_string = VStr(
       head: update_head(MASK_SIG_STR, h.as_u32).as_u32,
-      tail: ImStringPayloadRef(hash: h, data: new_data)
+      tail: VStrPayloadRef(hash: h, data: new_data)
     )
   else:
-    var re = new ImStringPayload
+    var re = new VStrPayload
     GC_ref(re)
     re.hash = new_hash
     re.data = new_data
-    var new_string = ImString(p: bitor(MASK_SIG_STR, re.as_p.as_u64).as_p)
+    var new_string = VStr(p: bitor(MASK_SIG_STR, re.as_p.as_u64).as_p)
   
-func init_string_empty(): ImString =
+func init_string_empty(): VStr =
   let hash = INITIAL_STR_HASH
   let data = ""
-  buildImString(hash, data)
+  buildVStr(hash, data)
   return new_string
 
 let empty_string = init_string_empty()
 
-proc init_string*(s: string = ""): ImString =
+proc init_string*(s: string = ""): VStr =
   if s.len == 0: return empty_string
   let hash = hash(s)
-  buildImString(hash, s)
+  buildVStr(hash, s)
   return new_string
-template to_str*(s: string): ImString = s.init_string
+template to_str*(s: string): VStr = s.init_string
 
-proc `[]`*(s: ImString, i: int): ImValue =
+proc `[]`*(s: VStr, i: int): Value =
   result = Nil.as_v
   if i < s.payload.data.len:
     if i >= 0:
       result = (init_string($s.payload.data[i])).as_v
 
-proc concat*(s1, s2: ImString): ImString =
+proc concat*(s1, s2: VStr): VStr =
   let new_s = s1.payload.data & s2.payload.data
   return init_string(new_s)
-proc `&`*(s1, s2: ImString): ImString =
+proc `&`*(s1, s2: VStr): VStr =
   let new_s = s1.payload.data & s2.payload.data
   return init_string(new_s)
 
-func size*(s: ImString): int =
+func size*(s: VStr): int =
   return s.payload.data.len.int
 
-func `<`*(v1, v2: ImString): bool = return v1.payload.data < v2.payload.data
-func `<=`*(v1, v2: ImString): bool = return v1.payload.data <= v2.payload.data
+func `<`*(v1, v2: VStr): bool = return v1.payload.data < v2.payload.data
+func `<=`*(v1, v2: VStr): bool = return v1.payload.data <= v2.payload.data
 
-func to_nim_string(s: ImString): string = s.payload.data
+func to_nim_string(s: VStr): string = s.payload.data
 
-# ImSymbol Impl #
+# VSym Impl #
 # ---------------------------------------------------------------------
 
 var symbol_id: uint = 0
@@ -773,35 +758,35 @@ proc get_symbol_id(): uint =
   symbol_id += 1
   return symbol_id
 
-proc init_symbol*(str: string = ""): ImSymbol = 
+proc init_symbol*(str: string = ""): VSym = 
   let new_sym_id = get_symbol_id()
-  let re = ImSymbolPayloadRef(id: new_sym_id, data: str)
+  let re = VSymPayloadRef(id: new_sym_id, data: str)
   when c32:
-    result = ImSymbol(
+    result = VSym(
       head: update_head(MASK_SIG_SYM, new_sym_id.as_u32).as_u32,
       tail: re
     )
   else:
     GC_ref(re)
-    result = ImSymbol(p: bitor(MASK_SIG_SYM, re.as_p.as_u64).as_p)
+    result = VSym(p: bitor(MASK_SIG_SYM, re.as_p.as_u64).as_p)
 
-func to_nim_string(s: ImSymbol): string = s.payload.data
+func to_nim_string(s: VSym): string = s.payload.data
 
-# ImMap Impl #
+# VMap Impl #
 # ---------------------------------------------------------------------
 
 template map_from_pmap(pmap: typed) {.dirty.} =
   when c32:
-    var new_map = ImMap(
+    var new_map = VMap(
       head: update_head(MASK_SIG_MAP, 0),
       tail: pmap
     )
   else:
     GC_ref(pmap)
-    var new_map = ImMap(p: bitor(MASK_SIG_MAP, pmap.as_u64).as_p)
+    var new_map = VMap(p: bitor(MASK_SIG_MAP, pmap.as_u64).as_p)
 
-func init_map_empty(): ImMap =
-  var pmap = map.init_map[ImValue, ImValue]()
+func init_map_empty(): VMap =
+  var pmap = map.init_map[Value, Value]()
   map_from_pmap(pmap)
   return new_map
   
@@ -809,10 +794,10 @@ let empty_map = init_map_empty()
 
 template hash_entry(k, v: typed): Hash = (hash(k).as_u64 + hash(v).as_u64).as_hash
 
-proc init_map*(): ImMap = return empty_map
-proc init_map*(init_data: openArray[(ImValue, ImValue)]): ImMap =
+proc init_map*(): VMap = return empty_map
+proc init_map*(init_data: openArray[(Value, Value)]): VMap =
   if init_data.len == 0: return empty_map
-  var pmap = map.init_map[ImValue, ImValue]()
+  var pmap = map.init_map[Value, Value]()
   for (k, v) in init_data:
     if v == Nil.v:
       pmap = pmap.delete(k)
@@ -822,158 +807,158 @@ proc init_map*(init_data: openArray[(ImValue, ImValue)]): ImMap =
   return new_map
 
 # There's probably no point in having this. It suggests reference semantics.
-proc clear*(m: ImMap): ImMap =
+proc clear*(m: VMap): VMap =
   return empty_map
 
-proc contains*(m: ImMap, k: ImValue): bool = m.payload.contains(k)
-template contains*(m: ImMap, k: typed): bool = m.payload.contains(k.v)
+proc contains*(m: VMap, k: Value): bool = m.payload.contains(k)
+template contains*(m: VMap, k: typed): bool = m.payload.contains(k.v)
 
-proc get_impl(m: ImMap, k: ImValue): ImValue =
+proc get_impl(m: VMap, k: Value): Value =
   return m.payload.get_or_default(k, Nil.v)
-template `[]`*(m: ImMap, k: typed): ImValue = get_impl(m, k.v)
-template get*(m: ImMap, k: typed): ImValue = get_impl(m, k.v)
+template `[]`*(m: VMap, k: typed): Value = get_impl(m, k.v)
+template get*(m: VMap, k: typed): Value = get_impl(m, k.v)
 
-proc del*(m: ImMap, k: ImValue): ImMap =
+proc del*(m: VMap, k: Value): VMap =
   if not(k in m): return m
   let new_pmap = m.payload.delete(k)
   map_from_pmap(new_pmap)
   return new_map
-template del*(m: ImMap, key: typed): ImMap = m.del(key.v)
+template del*(m: VMap, key: typed): VMap = m.del(key.v)
 
-proc set*(m: ImMap, k, v: ImValue): ImMap =
+proc set*(m: VMap, k, v: Value): VMap =
   if v == Nil.as_v: return m.del(k)
   let new_pmap = m.payload.add(k, v)
   map_from_pmap(new_pmap)
   return new_map
-template set*(m: ImMap, key, val: typed): ImMap = set(m, key.v, val.v)
+template set*(m: VMap, key, val: typed): VMap = set(m, key.v, val.v)
 
-func size*(m: ImMap): int =
+func size*(m: VMap): int =
   return m.payload.len.int
 
-iterator values*(m: ImMap): ImValue =
+iterator values*(m: VMap): Value =
   for v in m.payload.values:
     yield v
-iterator keys*(m: ImMap): ImValue =
+iterator keys*(m: VMap): Value =
   for k in m.payload.keys:
     yield k
-iterator pairs*(m: ImMap): (ImValue, ImValue) =
+iterator pairs*(m: VMap): (Value, Value) =
   for p in m.payload.pairs:
     yield p
 
-proc merge*(m1, m2: ImMap): ImMap =
+proc merge*(m1, m2: VMap): VMap =
   ## Asymmetric. Entries in m2 overwrite m1
   if m2.size == 0: return m1
   if m1.size == 0: return m2
   let new_pmap = m1.payload.concat(m2.payload)
   map_from_pmap(new_pmap)
   return new_map
-template `&`*(m1, m2: ImMap): ImMap = m1.merge(m2)
+template `&`*(m1, m2: VMap): VMap = m1.merge(m2)
 
-# ImArray Impl #
+# VVec Impl #
 # ---------------------------------------------------------------------
 
 template array_from_vec(pvec: typed) {.dirty} =
   when c32:
-    var new_array = ImArray(
-      head: update_head(MASK_SIG_ARR, 0),
+    var new_array = VVec(
+      head: update_head(MASK_SIG_VEC, 0),
       tail: pvec
     )
   else:
     GC_ref(pvec)
-    var new_array = ImArray(p: bitor(MASK_SIG_ARR, pvec.as_u64).as_p)
+    var new_array = VVec(p: bitor(MASK_SIG_VEC, pvec.as_u64).as_p)
 
-proc init_array_empty(): ImArray =
-  let vec = init_vec[ImValue]()
+proc init_array_empty(): VVec =
+  let vec = init_vec[Value]()
   array_from_vec(vec)
   return new_array
 
 let empty_array = init_array_empty()
 
-proc init_array*(): ImArray = return empty_array
-proc init_array*(init_data: openArray[ImValue]): ImArray =
+proc init_array*(): VVec = return empty_array
+proc init_array*(init_data: openArray[Value]): VVec =
   if init_data.len == 0: return empty_array
   let vec = init_data.to_vec
   array_from_vec(vec)
   return new_array
 
-proc size*(a: ImArray): int =
+proc size*(a: VVec): int =
   return a.payload.len
 
 ## TODO
-## - ImValue indices
+## - Value indices
 ## - Negative indices
 ## - range indices
-template get_impl(a: ImArray, i: int) =
+template get_impl(a: VVec, i: int) =
   return a.payload.getOrDefault(i, Nil.v)
-template get_impl(a: ImArray, i: ImValue) =
+template get_impl(a: VVec, i: Value) =
   if i.is_num:
     get_impl(a, i.as_f64.int)
   else:
     raise newException(TypeException, &"Cannot get with index of {$i} of type {i.type_label}")
-template get_impl(a: ImArray, i: float64) =
+template get_impl(a: VVec, i: float64) =
   if i.is_num:
     get_impl(a, i.as_f64.int)
   else:
     raise newException(TypeException, &"Cannot get with index of {$i} of type {i.type_label}")
 
-proc `[]`*(a: ImArray, i: int): ImValue     = get_impl(a, i)
-proc `[]`*(a: ImArray, i: ImValue): ImValue = get_impl(a, i)
-proc `[]`*(a: ImArray, i: float64): ImValue = get_impl(a, i)
-proc get*(a: ImArray, i: int): ImValue      = get_impl(a, i)
-proc get*(a: ImArray, i: ImValue): ImValue  = get_impl(a, i)
-proc get*(a: ImArray, i: float64): ImValue  = get_impl(a, i)
+proc `[]`*(a: VVec, i: int): Value     = get_impl(a, i)
+proc `[]`*(a: VVec, i: Value): Value = get_impl(a, i)
+proc `[]`*(a: VVec, i: float64): Value = get_impl(a, i)
+proc get*(a: VVec, i: int): Value      = get_impl(a, i)
+proc get*(a: VVec, i: Value): Value  = get_impl(a, i)
+proc get*(a: VVec, i: float64): Value  = get_impl(a, i)
 
-iterator items*(a: ImArray): ImValue =
+iterator items*(a: VVec): Value =
   for v in a.payload.items:
     yield v
 
-proc slice*(a: ImArray, i1, i2: int): ImArray =
+proc slice*(a: VVec, i1, i2: int): VVec =
   let new_vec = a.payload.get(i1..<i2)
   array_from_vec(new_vec)
   return new_array
-proc slice*(a: ImArray, i1, i2: ImValue): ImArray =
+proc slice*(a: VVec, i1, i2: Value): VVec =
   if i1.is_num and i2.is_num:
     return a.slice(i1.as_f64.int, i2.as_f64.int)
   else:
     raise newException(TypeException, &"Cannot slice with arguments of {$i1} of type {i1.type_label} and {$i2} of type {i2.type_label}")
-template slice*(a: ImArray, i1, i2: typed): ImArray = a.slice(i1.v, i2.v)
+template slice*(a: VVec, i1, i2: typed): VVec = a.slice(i1.v, i2.v)
 
-template set_impl*(a: ImArray, i: int, v: ImValue) =
+template set_impl*(a: VVec, i: int, v: Value) =
   let new_vec = a.payload.set(i, v)
   array_from_vec(new_vec)
   return new_array
-template set_impl*(a: ImArray, i: ImValue, v: ImValue) =
+template set_impl*(a: VVec, i: Value, v: Value) =
   if i.is_num: set_impl(a, i.as_f64.int, v)
   else:
     raise newException(TypeException, &"Cannot set with index of {$i} of type {i.type_label}")
-template set_impl*(a: ImArray, i: float64, v: ImValue) =
+template set_impl*(a: VVec, i: float64, v: Value) =
   if i.is_num: set_impl(a, i.as_f64.int, v)
   else:
     raise newException(TypeException, &"Cannot set with index of {$i} of type {i.type_label}")
 
 ## TODO
-## - ImValue indices
+## - Value indices
 ## - Negative indices
 ## - range indices???
 ## - indices beyond the end of the sequence (fill the gap with Nil)
-proc set*(a: ImArray, i: int, v: ImValue): ImArray = set_impl(a, i, v)
-proc set*(a: ImArray, i: ImValue, v: ImValue): ImArray = set_impl(a, i, v)
-proc set*(a: ImArray, i: float64, v: ImValue): ImArray = set_impl(a, i, v)
+proc set*(a: VVec, i: int, v: Value): VVec = set_impl(a, i, v)
+proc set*(a: VVec, i: Value, v: Value): VVec = set_impl(a, i, v)
+proc set*(a: VVec, i: float64, v: Value): VVec = set_impl(a, i, v)
 
-proc add*(a: ImArray, v: ImValue): ImArray =
+proc add*(a: VVec, v: Value): VVec =
   let new_vec = a.payload.append(v)
   array_from_vec(new_vec)
   return new_array
-template push*(a: ImArray, v: ImValue): ImArray = a.add(v)
-template append*(a: ImArray, v: ImValue): ImArray = a.add(v)
+template push*(a: VVec, v: Value): VVec = a.add(v)
+template append*(a: VVec, v: Value): VVec = a.add(v)
 
-proc prepend*(a: ImArray, v: ImValue): ImArray =
+proc prepend*(a: VVec, v: Value): VVec =
   let new_vec = a.payload.prepend(v)
   array_from_vec(new_vec)
   return new_array
-template push_front*(a: ImArray, v: ImValue): ImArray = a.prepend(v)
+template push_front*(a: VVec, v: Value): VVec = a.prepend(v)
 
-proc pop*(a: ImArray): (ImValue, ImArray) =
+proc pop*(a: VVec): (Value, VVec) =
   case a.size:
     of 0: return (Nil.v, a)
     of 1: return (a.payload[0], empty_array)
@@ -982,20 +967,20 @@ proc pop*(a: ImArray): (ImValue, ImArray) =
       array_from_vec(new_vec)
       return (datum, new_array)
 
-proc merge*(a1, a2: ImArray): ImArray =
+proc merge*(a1, a2: VVec): VVec =
   let new_vec = a1.payload & a2.payload
   array_from_vec(new_vec)
   return new_array
-template concat*(a1, a2: ImArray): ImArray = a1.merge(a2)
-template `&`*(a1, a2: ImArray): ImArray = a1.merge(a2)
+template concat*(a1, a2: VVec): VVec = a1.merge(a2)
+template `&`*(a1, a2: VVec): VVec = a1.merge(a2)
 
-proc `<`*(v1, v2: ImArray): bool =
+proc `<`*(v1, v2: VVec): bool =
   for (it1, it2) in zip_iter(v1.payload, v2.payload):
     if it1 < it2: return true
     if it2 < it1: return false
   if v1.size < v2.size: return true
   return false
-proc `<=`*(v1, v2: ImArray): bool =
+proc `<=`*(v1, v2: VVec): bool =
   let l = min(v1.size, v2.size)
   for (it1, it2) in zip_iter(v1.payload, v2.payload):
     if it1 < it2: return true
@@ -1003,59 +988,59 @@ proc `<=`*(v1, v2: ImArray): bool =
   if v1.size > v2.size: return false
   return true
 
-# ImSet Impl #
+# VSet Impl #
 # ---------------------------------------------------------------------
 
 template set_from_pset(pset: typed) {.dirty.} =
   when c32:
-    var new_set = ImSet(
+    var new_set = VSet(
       head: update_head(MASK_SIG_SET, 0),
       tail: pset
     )
   else:
     GC_ref(pset)
-    var new_set = ImSet(p: bitor(MASK_SIG_SET, pset.as_u64).as_p)
+    var new_set = VSet(p: bitor(MASK_SIG_SET, pset.as_u64).as_p)
 
-proc init_set_empty(): ImSet =
-  let pset = map.init_set[ImValue]()
+proc init_set_empty(): VSet =
+  let pset = map.init_set[Value]()
   set_from_pset(pset)
   return new_set
 
 let empty_set = init_set_empty()
 
-proc init_set*(): ImSet = return empty_set
-proc init_set*(init_data: openArray[ImValue]): ImSet =
+proc init_set*(): VSet = return empty_set
+proc init_set*(init_data: openArray[Value]): VSet =
   if init_data.len == 0: return empty_set
-  let pset = map.to_set[ImValue](init_data)
+  let pset = map.to_set[Value](init_data)
   set_from_pset(pset)
   return new_set
 
-proc contains*(s: ImSet, k: ImValue): bool = s.payload.contains(k)
-template contains*(s: ImSet, k: typed): bool = s.payload.contains(k.v)
+proc contains*(s: VSet, k: Value): bool = s.payload.contains(k)
+template contains*(s: VSet, k: typed): bool = s.payload.contains(k.v)
 
-# template has_inner(s: ImSet, k: typed) =
+# template has_inner(s: VSet, k: typed) =
 #   let derefed = s.payload
 #   if k.as_v in derefed.data: return True
 #   return False
-# proc has*(s: ImSet, k: ImValue): ImBool = has_inner(s, k)
-# proc has*(s: ImSet, k: float64): ImBool = has_inner(s, k)
+# proc has*(s: VSet, k: Value): VBool = has_inner(s, k)
+# proc has*(s: VSet, k: float64): VBool = has_inner(s, k)
 
-proc get*(s: ImSet, k: ImValue): ImValue =
+proc get*(s: VSet, k: Value): Value =
   if k.v in s: return k.v else: return Nil.v
-proc get*(s: ImSet, k: float): ImValue =
+proc get*(s: VSet, k: float): Value =
   if k.v in s: return k.v else: return Nil.v
 
-proc add*(s: ImSet, k: ImValue): ImSet =
+proc add*(s: VSet, k: Value): VSet =
   let pset = s.payload.incl(k)
   set_from_pset(pset)
   return new_set
 
-proc del*(s: ImSet, k: ImValue): ImSet =
+proc del*(s: VSet, k: Value): VSet =
   let pset = s.payload.excl(k)
   set_from_pset(pset)
   return new_set
 
-proc size*(s: ImSet): int =
+proc size*(s: VSet): int =
   return s.payload.len.int
 
 # More Conversions #
@@ -1063,25 +1048,25 @@ proc size*(s: ImSet): int =
 
 proc V_impl*(x: NimNode): NimNode =
   case x.kind:
-    # a plain tuple of ImValues
+    # a plain tuple of Values
     of nnkTupleConstr, nnkPar:
       var tup = quote do: ()
       for c in x.children:
         tup.add(V_impl(c))
       return tup
-    # a ImArray as ImValue
+    # a VVec as Value
     of nnkBracket:
       var brak = copyNimNode(x)
       for c in x.children:
         brak.add(V_impl(c))
       return newCall("v", newCall("init_array", brak))
-    # a ImSet as ImValue
+    # a VSet as Value
     of nnkCurly:
       var brak = quote do: []
       for c in x.children:
         brak.add(V_impl(c))
       return newCall("v", newCall("init_set", brak))
-    # a ImMap as ImValue
+    # a VMap as Value
     of nnkTableConstr:
       var brak = quote do: []
       var parens = quote do: ()
@@ -1091,7 +1076,7 @@ proc V_impl*(x: NimNode): NimNode =
           parens.add(V_impl(c))
         brak.add(parens)
       return newCall("v", newCall("init_map", brak))
-    # some other ImValue that doesn't have any special treatment of literals
+    # some other Value that doesn't have any special treatment of literals
     else: 
       return newCall("v", x)
 macro V*(x: untyped): untyped =
@@ -1111,12 +1096,12 @@ proc Map_impl*(x: NimNode): NimNode =
         for c in tup.children:
           parens.add(V_impl(c))
         brak.add(parens)
-      return quote do: init_map(`brak`)
+      return quote do: init_map(`brak`).v
     of nnkCurly:
       var brak = quote do: []
       if x.len > 0:
         raise newException(TypeException, &"Cannot call Map on {x.repr}")
-      return quote do: init_map(`brak`)
+      return quote do: init_map(`brak`).v
     of nnkTableConstr:
       var brak = quote do: []
       var parens = quote do: ()
@@ -1125,27 +1110,27 @@ proc Map_impl*(x: NimNode): NimNode =
         for c in colon_expr.children:
           parens.add(V_impl(c))
         brak.add(parens)
-      return quote do: init_map(`brak`)
+      return quote do: init_map(`brak`).v
     else:
-      return quote do: init_map(`x`)
+      return quote do: init_map(`x`).v
 macro Map*(x: untyped): untyped =
   Map_impl(x)
 macro Map*(): untyped =
-  return quote do: init_map([])
+  return quote do: init_map([]).v
 
-proc Arr_impl*(x: NimNode): NimNode =
+proc Vec_impl*(x: NimNode): NimNode =
   case x.kind:
     of nnkBracket:
       var brak = copyNimNode(x)
       for c in x.children:
         brak.add(V_impl(c))
-      return quote do: init_array(`brak`)
+      return quote do: init_array(`brak`).v
     else: 
-      return quote do: init_array(`x`)
-macro Arr*(x: untyped): untyped =
-  Arr_impl(x)
-macro Arr*(): untyped =
-  return quote do: init_array([])
+      return quote do: init_array(`x`).v
+macro Vec*(x: untyped): untyped =
+  Vec_impl(x)
+macro Vec*(): untyped =
+  return quote do: init_array([]).v
 
 proc Set_impl*(x: NimNode): NimNode =
   case x.kind:
@@ -1153,35 +1138,35 @@ proc Set_impl*(x: NimNode): NimNode =
       var brak = quote do: []
       for c in x.children:
         brak.add(V_impl(c))
-      return quote do: init_set(`brak`)
+      return quote do: init_set(`brak`).v
     else: 
-      return quote do: init_set(`x`)
+      return quote do: init_set(`x`).v
 macro Set*(x: untyped): untyped =
   Set_impl(x)
 macro Set*(): untyped =
-  return quote do: init_set([])
+  return quote do: init_set([]).v
 
 ## TODO
 ## - add format string capabilities
-template Str*(x: string): ImString = x.init_string
+template Str*(x: string): Value = x.init_string.v
 
 proc Sym_impl*(x: NimNode): NimNode =
   if x.kind == nnkStrLit:
-    return quote do: init_symbol(`x`)
+    return quote do: init_symbol(`x`).v
   let str_val = x.repr
-  return quote do: init_symbol(`str_val`)
+  return quote do: init_symbol(`str_val`).v
 macro Sym*(x: untyped): untyped =
   Sym_impl(x)
 macro Sym*(): untyped =
-  return quote do: init_symbol()
+  return quote do: init_symbol().v
 
-# ImValue Fns #
+# Value Fns #
 # ---------------------------------------------------------------------
 
-proc get_in(it: ImValue, path: openArray[ImValue], i: int, default: ImValue): ImValue =
-  var new_it: ImValue
+proc get_in(it: Value, path: openArray[Value], i: int, default: Value): Value =
+  var new_it: Value
   if it.is_map:     new_it = it.as_map.get(path[i].v)
-  elif it.is_array: new_it = it.as_arr.get(path[i].v)
+  elif it.is_vec: new_it = it.as_vec.get(path[i].v)
   elif it.is_set:   new_it = it.as_set.get(path[i].v)
   elif it == Nil.v:
     return default
@@ -1192,16 +1177,16 @@ proc get_in(it: ImValue, path: openArray[ImValue], i: int, default: ImValue): Im
     if new_it != Nil.v: return new_it
     return default
   else: return get_in(new_it, path, i + 1, default)
-template get_in*(it: ImValue, path: openArray[ImValue], default: ImValue): ImValue =
+template get_in*(it: Value, path: openArray[Value], default: Value): Value =
   get_in(it, path, 0, default)
-template get_in*(it: ImValue, path: openArray[ImValue]): ImValue =
+template get_in*(it: Value, path: openArray[Value]): Value =
   get_in(it, path, 0, Nil.v)
 
 ## If a key in the path does not exist, maps are created
-proc set_in*(it: ImValue, path: openArray[ImValue], v: ImValue): ImValue =
+proc set_in*(it: Value, path: openArray[Value], v: Value): Value =
   var payload = v
-  var stack = newSeq[ImValue]()
-  var k: ImValue
+  var stack = newSeq[Value]()
+  var k: Value
   var curr = it
   var max = 0
   for i in 0..path.high:
@@ -1209,9 +1194,9 @@ proc set_in*(it: ImValue, path: openArray[ImValue], v: ImValue): ImValue =
     if curr.is_map:
       stack.add(curr)
       curr = curr.as_map.get(k)
-    elif curr.is_array:
+    elif curr.is_vec:
       stack.add(curr)
-      curr = curr.as_arr.get(k)
+      curr = curr.as_vec.get(k)
     elif curr == Nil.v:
       for j in countdown(path.high, i):
         k = path[j]
@@ -1224,127 +1209,127 @@ proc set_in*(it: ImValue, path: openArray[ImValue], v: ImValue): ImValue =
     k = path[i]
     curr = stack[i]
     if curr.is_map:     payload = curr.as_map.set(k, payload).v
-    elif curr.is_array: payload = curr.as_arr.set(k, payload).v
+    elif curr.is_vec: payload = curr.as_vec.set(k, payload).v
     else:               echo "TODO - add exceptions2"
   return payload
 
-proc `<`*(a, b: ImValue): bool =
+proc `<`*(a, b: Value): bool =
   if a.is_num and b.is_num: return a.as_f64 < b.as_f64
   let a_sig = bitand(a.type_bits, MASK_SIGNATURE)
   let b_sig = bitand(b.type_bits, MASK_SIGNATURE)
   case a_sig:
     of MASK_SIG_STR:
       if b_sig == MASK_SIG_STR: return a.as_str < b.as_str
-    of MASK_SIG_ARR:
-      if b_sig == MASK_SIG_ARR: return a.as_arr < b.as_arr
+    of MASK_SIG_VEC:
+      if b_sig == MASK_SIG_VEC: return a.as_vec < b.as_vec
     else: discard
   raise newException(TypeException, &"Cannot compare {a.type_label} and {b.type_label}")
   
-proc `<=`*(a, b: ImValue): bool =
+proc `<=`*(a, b: Value): bool =
   if a.is_num and b.is_num: return a.as_f64 <= b.as_f64
   let a_sig = bitand(a.type_bits, MASK_SIGNATURE)
   let b_sig = bitand(b.type_bits, MASK_SIGNATURE)
   case a_sig:
     of MASK_SIG_STR:
       if b_sig == MASK_SIG_STR: return a.as_str <= b.as_str
-    of MASK_SIG_ARR:
-      if b_sig == MASK_SIG_ARR: return a.as_arr <= b.as_arr
+    of MASK_SIG_VEC:
+      if b_sig == MASK_SIG_VEC: return a.as_vec <= b.as_vec
     else: discard
   raise newException(TypeException, &"Cannot compare {a.type_label} and {b.type_label}")
 
-proc `[]`*(coll: ImValue, k: int): ImValue =
+proc `[]`*(coll: Value, k: int): Value =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    of MASK_SIG_ARR: return coll.as_arr[k]
+    of MASK_SIG_VEC: return coll.as_vec[k]
     of MASK_SIG_MAP: return coll.as_map[k.v]
     # of MASK_SIG_SET: return coll.as_set[k]
-    # of MASK_SIG_STR: return coll.as_map[k]
+    of MASK_SIG_STR: return coll.as_str[k]
     else: discard
   raise newException(TypeException, &"Cannot index into {$coll} of type {coll.type_label} with {$(k.v)} of type {(k.v).type_label}")
-proc `[]`*(coll, k: ImValue): ImValue =
+proc `[]`*(coll, k: Value): Value =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    of MASK_SIG_ARR: return coll.as_arr[k]
+    of MASK_SIG_VEC: return coll.as_vec[k]
     of MASK_SIG_MAP: return coll.as_map[k]
     # of MASK_SIG_SET: return coll.as_set[k]
-    # of MASK_SIG_STR: return coll.as_map[k]
+    of MASK_SIG_STR: return coll.as_str[k]
     else: discard
   raise newException(TypeException, &"Cannot index into {$coll} of type {coll.type_label} with {$k} of type {k.type_label}")
-template `[]`*(coll: ImValue, k: typed): ImValue = coll[k.v]
-template get*(coll: ImValue, k: int): ImValue = coll[k]
-template get*(coll: ImValue, k: typed): ImValue = coll[k.v]
+template `[]`*(coll: Value, k: typed): Value = coll[k.v]
+template get*(coll: Value, k: int): Value = coll[k]
+template get*(coll: Value, k: typed): Value = coll[k.v]
 
-proc slice*(coll, i1, i2: ImValue): ImValue =
+proc slice*(coll, i1, i2: Value): Value =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    of MASK_SIG_ARR: return coll.as_arr.slice(i1, i2).v
+    of MASK_SIG_VEC: return coll.as_vec.slice(i1, i2).v
     # of MASK_SIG_MAP: return coll.as_map[k]
     # of MASK_SIG_SET: return coll.as_set[k]
     # of MASK_SIG_STR: return coll.as_map[k]
     else: discard
   raise newException(TypeException, &"Cannot slice into {$coll} of type {coll.type_label} with {$i1} of type {i1.type_label} and {$i2} of type {i2.type_label}")
-template slice*(coll: ImValue, i1, i2: typed): ImValue = coll.slice(i1.v, i2.v)
+template slice*(coll: Value, i1, i2: typed): Value = coll.slice(i1.v, i2.v)
 
-proc set*(coll, k, v: ImValue): ImValue =
+proc set*(coll, k, v: Value): Value =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    of MASK_SIG_ARR: return coll.as_arr.set(k, v).v
+    of MASK_SIG_VEC: return coll.as_vec.set(k, v).v
     of MASK_SIG_MAP: return coll.as_map.set(k, v).v
     # of MASK_SIG_STR: return coll.as_str.set(k, v)
     else: discard
   raise newException(TypeException, &"Cannot set into {$coll} of type {coll.type_label} with key {$k} of type {k.type_label} and value {$v} of type {v.type_label}")
-template set*(coll: ImValue, key, val: typed): ImValue = set(coll, key.v, val.v)
+template set*(coll: Value, key, val: typed): Value = set(coll, key.v, val.v)
 
-proc add*(coll, v: ImValue): ImValue =
+proc add*(coll, v: Value): Value =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    of MASK_SIG_ARR: return coll.as_arr.add(v).v
+    of MASK_SIG_VEC: return coll.as_vec.add(v).v
     of MASK_SIG_SET: return coll.as_set.add(v).v
     # of MASK_SIG_MAP: return coll.as_map.set(k, v).v
     # of MASK_SIG_STR: return coll.as_str.set(k, v)
     else: discard
   raise newException(TypeException, &"Cannot add onto {$coll} of type {coll.type_label} with value {$v} of type {v.type_label}")
-template add*(coll: ImValue, val: typed): ImValue = add(coll, val.v)
-template append*(coll: ImValue, val: typed): ImValue = add(coll, val.v)
+template add*(coll: Value, val: typed): Value = add(coll, val.v)
+template append*(coll: Value, val: typed): Value = add(coll, val.v)
 
-proc push*(coll, v: ImValue): ImValue =
+proc push*(coll, v: Value): Value =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    of MASK_SIG_ARR: return coll.as_arr.push(v).v
+    of MASK_SIG_VEC: return coll.as_vec.push(v).v
     of MASK_SIG_SET: return coll.as_set.add(v).v
     # of MASK_SIG_MAP: return coll.as_map.set(k, v).v
     # of MASK_SIG_STR: return coll.as_str.set(k, v)
     else: discard
   raise newException(TypeException, &"Cannot push onto {$coll} of type {coll.type_label} with value {$v} of type {v.type_label}")
-template push*(coll: ImValue, val: typed): ImValue = push(coll, val.v)
+template push*(coll: Value, val: typed): Value = push(coll, val.v)
 
-proc prepend*(coll, v: ImValue): ImValue =
+proc prepend*(coll, v: Value): Value =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    of MASK_SIG_ARR: return coll.as_arr.prepend(v).v
+    of MASK_SIG_VEC: return coll.as_vec.prepend(v).v
     # of MASK_SIG_SET: return coll.as_set.add(v).v
     # of MASK_SIG_MAP: return coll.as_map.set(k, v).v
     # of MASK_SIG_STR: return coll.as_str.set(k, v)
     else: discard
   raise newException(TypeException, &"Cannot prepend onto {$coll} of type {coll.type_label} with value {$v} of type {v.type_label}")
-template push_front*(coll: ImValue, val: typed): ImValue = prepend(coll, val.v)
+template push_front*(coll: Value, val: typed): Value = prepend(coll, val.v)
 
-proc del*(coll, k: ImValue): ImValue =
+proc del*(coll, k: Value): Value =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    # of MASK_SIG_ARR: return coll.as_arr.set(k, v).v
+    # of MASK_SIG_VEC: return coll.as_vec.set(k, v).v
     of MASK_SIG_MAP: return coll.as_map.del(k).v
     of MASK_SIG_SET: return coll.as_set.del(k).v
     # of MASK_SIG_STR: return coll.as_str.set(k, v)
     else: discard
   raise newException(TypeException, &"Cannot del from {$coll} of type {coll.type_label} with key {$k} of type {k.type_label}")
-template del*(coll: ImValue, key: typed): ImValue = coll.del(key.v)
+template del*(coll: Value, key: typed): Value = coll.del(key.v)
 
-proc pop*(coll: ImValue): (ImValue, ImValue) =
+proc pop*(coll: Value): (Value, Value) =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    of MASK_SIG_ARR: 
-      var (popped, arr) = coll.as_arr.pop()
+    of MASK_SIG_VEC: 
+      var (popped, arr) = coll.as_vec.pop()
       return (popped, arr.v)
     # of MASK_SIG_SET: return coll.as_set.add(v).v
     # of MASK_SIG_MAP: return coll.as_map.set(k, v).v
@@ -1352,55 +1337,55 @@ proc pop*(coll: ImValue): (ImValue, ImValue) =
     else: discard
   raise newException(TypeException, &"Cannot call pop on {$coll} of type {coll.type_label}")
 
-proc size*(coll: ImValue): ImValue =
+proc size*(coll: Value): Value =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    of MASK_SIG_ARR: return coll.as_arr.size.v
+    of MASK_SIG_VEC: return coll.as_vec.size.v
     of MASK_SIG_MAP: return coll.as_map.size.v
     of MASK_SIG_STR: return coll.as_str.size.v
     of MASK_SIG_SET: return coll.as_set.size.v
     else: discard
   raise newException(TypeException, &"Cannot get the size of {$coll} of type {coll.type_label}")
-proc len*(coll: ImValue): int =
+proc len*(coll: Value): int =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    of MASK_SIG_ARR: return coll.as_arr.size
+    of MASK_SIG_VEC: return coll.as_vec.size
     of MASK_SIG_MAP: return coll.as_map.size
     of MASK_SIG_STR: return coll.as_str.size
     of MASK_SIG_SET: return coll.as_set.size
     else: discard
   raise newException(TypeException, &"Cannot get the len of {$coll} of type {coll.type_label}")
 
-proc merge*(v1, v2: ImValue): ImValue =
+proc merge*(v1, v2: Value): Value =
   let v1_sig = bitand(v1.type_bits, MASK_SIGNATURE)
   let v2_sig = bitand(v2.type_bits, MASK_SIGNATURE)
   if v1_sig == v2_sig:
     case v1_sig:
-      of MASK_SIG_ARR: return v1.as_arr.merge(v2.as_arr).v
+      of MASK_SIG_VEC: return v1.as_vec.merge(v2.as_vec).v
       of MASK_SIG_MAP: return v1.as_map.merge(v2.as_map).v
       # of MASK_SIG_SET: return v1.as_set.merge(v2.as_set).v
-      # of MASK_SIG_STR: return coll.as_str.set(k, v)
+      of MASK_SIG_STR: return v1.as_str.concat(v2.as_str).v
       else: discard
   raise newException(TypeException, &"Cannot merge {$v1} of type {v1.type_label} with {$v2} of type {v2.type_label}")
-template concat*(v1, v2: ImValue): ImValue = v1.merge(v2)
-template `&`*(v1, v2: ImValue): ImValue = v1.merge(v2)
+template concat*(v1, v2: Value): Value = v1.merge(v2)
+template `&`*(v1, v2: Value): Value = v1.merge(v2)
 
-proc contains*(coll, k: ImValue): bool =
+proc contains*(coll, k: Value): bool =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    # of MASK_SIG_ARR: return coll.as_arr.set(k, v)
+    # of MASK_SIG_VEC: return coll.as_vec.set(k, v)
     of MASK_SIG_MAP: return coll.as_map.contains(k)
     of MASK_SIG_SET: return coll.as_set.contains(k)
     # of MASK_SIG_STR: return coll.as_str.set(k, v)
     else: discard
   raise newException(TypeException, &"Cannot check whether {$coll} of type {coll.type_label} contains {$k} of type {k.type_label}")
-template contains*(coll: ImValue, key: typed): bool = coll.contains(key.v)
-template has*(coll: ImValue, key: typed): bool = coll.contains(key.v)
+template contains*(coll: Value, key: typed): bool = coll.contains(key.v)
+template has*(coll: Value, key: typed): bool = coll.contains(key.v)
 
-iterator keys*(coll: ImValue): ImValue =
+iterator keys*(coll: Value): Value =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    # of MASK_SIG_ARR: return coll.as_arr.keys
+    # of MASK_SIG_VEC: return coll.as_vec.keys
     of MASK_SIG_MAP:
       for k in coll.as_map.keys:
         yield k
@@ -1408,11 +1393,11 @@ iterator keys*(coll: ImValue): ImValue =
     # of MASK_SIG_STR: return coll.as_str.set(k, v)
     else:
       raise newException(TypeException, &"Cannot iterate the keys of {$coll} of type {coll.type_label}")
-iterator values*(coll: ImValue): ImValue =
+iterator values*(coll: Value): Value =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    of MASK_SIG_ARR:
-      for v in coll.as_arr.items:
+    of MASK_SIG_VEC:
+      for v in coll.as_vec.items:
         yield v
     of MASK_SIG_MAP:
       for v in coll.as_map.values:
@@ -1421,11 +1406,11 @@ iterator values*(coll: ImValue): ImValue =
     # of MASK_SIG_STR: return coll.as_str.set(k, v)
     else:
       raise newException(TypeException, &"Cannot iterate the values of {$coll} of type {coll.type_label}")
-iterator items*(coll: ImValue): ImValue =
+iterator items*(coll: Value): Value =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    of MASK_SIG_ARR:
-      for v in coll.as_arr.items:
+    of MASK_SIG_VEC:
+      for v in coll.as_vec.items:
         yield v
     of MASK_SIG_MAP:
       for v in coll.as_map.values:
@@ -1434,10 +1419,10 @@ iterator items*(coll: ImValue): ImValue =
     # of MASK_SIG_STR: return coll.as_str.set(k, v)
     else:
       raise newException(TypeException, &"Cannot iterate the values of {$coll} of type {coll.type_label}")
-iterator pairs*(coll: ImValue): (ImValue, ImValue) =
+iterator pairs*(coll: Value): (Value, Value) =
   let coll_sig = bitand(coll.type_bits, MASK_SIGNATURE)
   case coll_sig:
-    # of MASK_SIG_ARR: return coll.as_arr.pairs
+    # of MASK_SIG_VEC: return coll.as_vec.pairs
     of MASK_SIG_MAP:
       for p in coll.as_map.pairs:
         yield p
@@ -1446,44 +1431,43 @@ iterator pairs*(coll: ImValue): (ImValue, ImValue) =
     else:
       raise newException(TypeException, &"Cannot iterate the pairs of {$coll} of type {coll.type_label}")
 
-proc `+`*(x, y: ImValue): ImValue = 
+proc `+`*(x, y: Value): Value = 
   if x.is_num and y.is_num: return (x.as_f64 + y.as_f64).v
   else: raise newException(TypeException, &"Cannot call `+` on {x.type_label} and {y.type_label}")
-proc `-`*(x, y: ImValue): ImValue = 
+proc `-`*(x, y: Value): Value = 
   if x.is_num and y.is_num: return (x.as_f64 - y.as_f64).v
   else: raise newException(TypeException, &"Cannot call `-` on {x.type_label} and {y.type_label}")
-proc `*`*(x, y: ImValue): ImValue = 
+proc `*`*(x, y: Value): Value = 
   if x.is_num and y.is_num: return (x.as_f64 * y.as_f64).v
   else: raise newException(TypeException, &"Cannot call `*` on {x.type_label} and {y.type_label}")
-proc `/`*(x, y: ImValue): ImValue = 
+proc `/`*(x, y: Value): Value = 
   if x.is_num and y.is_num: return (x.as_f64 / y.as_f64).v
   else: raise newException(TypeException, &"Cannot call `/` on {x.type_label} and {y.type_label}")
-proc `mod`*(x, y: ImValue): ImValue =
+proc `mod`*(x, y: Value): Value =
   if x.is_num and y.is_num: return (system.mod(x.to_int, y.to_int)).v
   else: raise newException(TypeException, &"Cannot call `mod` on {x.type_label} and {y.type_label}")
 
-proc `+`*(x: ImValue, y: int): ImValue = 
+proc `+`*(x: Value, y: int): Value = 
   if x.is_num: return (x.as_f64 + y.float64).v
   else: raise newException(TypeException, &"Cannot call `+` on {x.type_label} and int")
-proc `-`*(x: ImValue, y: int): ImValue = 
+proc `-`*(x: Value, y: int): Value = 
   if x.is_num: return (x.as_f64 - y.float64).v
   else: raise newException(TypeException, &"Cannot call `-` on {x.type_label} and int")
-proc `*`*(x: ImValue, y: int): ImValue = 
+proc `*`*(x: Value, y: int): Value = 
   if x.is_num: return (x.as_f64 * y.float64).v
   else: raise newException(TypeException, &"Cannot call `*` on {x.type_label} and int")
-proc `/`*(x: ImValue, y: int): ImValue = 
+proc `/`*(x: Value, y: int): Value = 
   if x.is_num: return (x.as_f64 / y.float64).v
   else: raise newException(TypeException, &"Cannot call `/` on {x.type_label} and int")
-proc `mod`*(x: ImValue, y: int): ImValue =
+proc `mod`*(x: Value, y: int): Value =
   if x.is_num: return (system.mod(x.to_int, y)).v
   else: raise newException(TypeException, &"Cannot call `mod` on {x.type_label} and int")
-
 
 ##
 ## nil < boolean < number < string < set < array < map
 ## 
 ## What about bignum and the rest of the gang?
-proc compare*(a, b: ImValue): int =
+proc compare*(a, b: Value): int =
   let a_sig = bitand(a.type_bits, MASK_SIGNATURE)
   let b_sig = bitand(b.type_bits, MASK_SIGNATURE)
 
