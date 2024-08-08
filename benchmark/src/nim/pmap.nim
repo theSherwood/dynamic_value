@@ -1,6 +1,6 @@
 import std/[sequtils]
-import ../../../../src/persistent/map
-import ../common
+import ../../../submodules/persistent/src/map
+import common
 
 proc setup_seq_of_pmaps*(sz, it, offset: int): seq[MapRef[int, int]] =
   var i_off, k: int
@@ -62,19 +62,17 @@ proc pmap_del_entry*(tr: TaskResult, sz, n: int) =
     maps[i] = maps[i].delete(i)
   tr.add(get_time() - Start)
 
-# proc pmap_merge*(tr: TaskResult, sz, n: int) =
-#   # setup
-#   var maps1 = setup_seq_of_pmaps(sz, n)
-#   var maps2 = setup_seq_of_pmaps(sz, n, 3)
-#   var maps3: seq[MapRef[int, int]] = @[]
-#   var m: MapRef[int, int]
-#   # test
-#   let Start = get_time()
-#   for i in 0..<n:
-#     m = maps1[i]
-#     m.add(maps2[i])
-#     maps3.add(m)
-#   tr.add(get_time() - Start)
+proc pmap_merge*(tr: TaskResult, sz, n: int) =
+  # setup
+  var maps1 = setup_seq_of_pmaps(sz, n)
+  var maps2 = setup_seq_of_pmaps(sz, n, 3)
+  var maps3: seq[MapRef[int, int]] = @[]
+  var m: MapRef[int, int]
+  # test
+  let Start = get_time()
+  for i in 0..<n:
+    maps3.add(maps1[i] & maps2[i])
+  tr.add(get_time() - Start)
 
 proc pmap_has_key_true*(tr: TaskResult, sz, n: int) =
   # setup

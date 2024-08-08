@@ -1,7 +1,7 @@
 # import std/[math, algorithm, strutils, strformat, sequtils, tables]
 import std/[sequtils]
-import ../../../../src/persistent/vec
-import ../common
+import ../../../submodules/persistent/src/vec
+import common
 
 proc setup_seq_of_pvec_arrs*(sz, it, offset: int): seq[VecRef[int]] =
   var i_off, k: int

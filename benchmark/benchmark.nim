@@ -1,12 +1,13 @@
 # import std/[math, algorithm, strutils, strformat, sequtils, tables]
 # import ../src/[values]
 # import nimprof
-import ./src/nim/[common, map, arr, rules]
+import ./src/nim/[common, map, arr]
 import ./src/nim/parazoa/arr as para_arr
 import ./src/nim/parazoa/map as para_map
 import ./src/nim/nim_persistent_vector/arr as pers_arr
-import ./src/nim/pvec/arr as pvec_arr
-import ./src/nim/pmap/map as pmap
+import ./src/nim/pvec as pvec
+import ./src/nim/pmap as pmap
+import ../src/values
 
 const RUN_IMVALUE    = true
 const RUN_PARAZOA    = true
@@ -15,7 +16,6 @@ const RUN_PVEC       = true
 const RUN_PMAP       = true
 const RUN_SANITY     = true
 
-const RUN_RULES      = true
 const RUN_MAPS       = true
 const RUN_ARRS       = true
 
@@ -96,16 +96,16 @@ proc run_benchmarks() =
             bench("map_add_entry_multiple", PMAP, pmap_add_entry_multiple, sz, it)
             bench("map_overwrite_entry", PMAP, pmap_overwrite_entry, sz, it)
             bench("map_del_entry", PMAP, pmap_del_entry, sz, it)
-            # # bench("map_merge", PMAP, pmap_merge, sz, it)
-            # bench("map_has_key_true", PMAP, pmap_has_key_true, sz, it)
-            # bench("map_has_key_false", PMAP, pmap_has_key_false, sz, it)
-            # bench("map_get_existing", PMAP, pmap_get_existing, sz, it)
-            # bench("map_get_non_existing", PMAP, pmap_get_non_existing, sz, it)
-            # bench("map_iter_keys", PMAP, pmap_iter_keys, sz, it)
-            # bench("map_iter_values", PMAP, pmap_iter_values, sz, it)
-            # bench("map_iter_entries", PMAP, pmap_iter_entries, sz, it)
-            # bench("map_equal_true", PMAP, pmap_equal_true, sz, it)
-            # bench("map_equal_false", PMAP, pmap_equal_false, sz, it)
+            bench("map_merge", PMAP, pmap_merge, sz, it)
+            bench("map_has_key_true", PMAP, pmap_has_key_true, sz, it)
+            bench("map_has_key_false", PMAP, pmap_has_key_false, sz, it)
+            bench("map_get_existing", PMAP, pmap_get_existing, sz, it)
+            bench("map_get_non_existing", PMAP, pmap_get_non_existing, sz, it)
+            bench("map_iter_keys", PMAP, pmap_iter_keys, sz, it)
+            bench("map_iter_values", PMAP, pmap_iter_values, sz, it)
+            bench("map_iter_entries", PMAP, pmap_iter_entries, sz, it)
+            bench("map_equal_true", PMAP, pmap_equal_true, sz, it)
+            bench("map_equal_false", PMAP, pmap_equal_false, sz, it)
 
           if RUN_PARAZOA:
             bench("map_add_entry", PARAZOA, parazoa_map_add_entry, sz, it)
@@ -164,10 +164,6 @@ proc run_benchmarks() =
             bench("arr_iter", PARAZOA, parazoa_arr_iter, sz, it)
             bench("arr_equal_true", PARAZOA, parazoa_arr_equal_true, sz, it)
             bench("arr_equal_false", PARAZOA, parazoa_arr_equal_false, sz, it)
-
-  # rules benchmarks
-  if RUN_RULES:
-    bench("send_more_money", IMPERATIVE, send_more_money_imperative, 0, 1)
 
 run_benchmarks()
 output_results()

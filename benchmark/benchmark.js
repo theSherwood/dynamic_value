@@ -80,12 +80,6 @@ import {
   pojo_overwrite_entry,
   pojo_overwrite_entry_by_spread,
 } from "./src/js/map.js";
-import {
-  manners_nools,
-  send_more_money_imperative,
-  send_more_money_nools,
-  waltz_db_nools,
-} from "./src/js/nools.js";
 
 function sanity_check(tr, _sz, n) {
   let start = get_time();
@@ -196,26 +190,6 @@ async function run_benchmarks() {
           bench_sync("map_equal_false", IMMUTABLEJS, immutable_map_equal_false, sz, it, LOW_TIMEOUT)
         }
       }
-    }
-  }
-  /* rules benchmarks */
-  {
-    bench_sync("send_more_money", "imperative", send_more_money_imperative, 0, 1);
-    /* nools */
-    if (RUN_NOOLS) {
-      await Promise.all([
-        bench_sync("send_more_money", "nools", send_more_money_nools, 0, 1),
-        bench_async("manners", "nools", manners_nools, 5, 1),
-        bench_async("manners", "nools", manners_nools, 8, 1),
-        // bench_async("manners", "nools", manners_nools, 16, 1),
-        // bench_async("manners", "nools", manners_nools, 32, 1),
-        // bench_async("manners", "nools", manners_nools, 64, 1),
-        // bench_async("manners", "nools", manners_nools, 128, 1),
-        bench_async("waltz_db", "nools", waltz_db_nools, 4, 1),
-        bench_async("waltz_db", "nools", waltz_db_nools, 8, 1),
-        // bench_async("waltz_db", "nools", waltz_db_nools, 12, 1),
-        // bench_async("waltz_db", "nools", waltz_db_nools, 16, 1),
-      ]);
     }
   }
 }

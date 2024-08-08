@@ -15,7 +15,12 @@ proc setup_seq_of_maps*(sz, it, offset: int): seq[ImValue] =
 template setup_seq_of_maps*(sz, it: int): seq[ImValue] = setup_seq_of_maps(sz, it, 0)
 
 proc force_copy*(m: ImMap): ImMap =
-  return m.set(-1, -1).del(-1)
+  let sz = m.size
+  result = m.set(-1, -1).del(-1)
+  if result.size != sz:
+    debugecho sz, " ", result.size
+    debugecho m
+  doAssert result.size == sz
 proc copy_maps*(maps: seq[ImValue]): seq[ImValue] =
   return maps.map(proc (m: ImValue): ImValue = m.as_map.force_copy.v)
 
@@ -169,6 +174,8 @@ proc map_equal_true*(tr: TaskResult, sz, n: int) =
   # test
   let Start = get_time()
   for i in 0..<n:
+    if maps[i] != copies[i]:
+      echo "\n!!!! ", maps[i], "\n???? ", copies[i]
     bools.add(maps[i] == copies[i])
   tr.add(get_time() - Start)
   doAssert bools.all(proc (b: bool): bool = b)
