@@ -33,7 +33,7 @@ proc output_results() =
   for tr in csv_rows:
     tr.to_row.write_row
 
-const IMVALUE    = "dyn_value"
+const DYNVALUE   = "dyn_value"
 const PVEC       = "pvec"
 const PMAP       = "pmap"
 const PARAZOA    = "parazoa"
@@ -52,7 +52,7 @@ proc run_benchmarks() =
     for it in [10, 100, 1000]:
       if RUN_MAPS:
         if RUN_DYN_VALUE:
-          bench("map_create", IMVALUE, map_create, 0, it)
+          bench("map_create", DYNVALUE, map_create, 0, it)
         if RUN_PARAZOA:
           bench("map_create", PARAZOA, parazoa_map_create, 0, it)
         if RUN_PMAP:
@@ -60,7 +60,7 @@ proc run_benchmarks() =
 
       if RUN_ARRS:
         if RUN_DYN_VALUE:
-          bench("arr_create", IMVALUE, arr_create, 0, it)
+          bench("arr_create", DYNVALUE, arr_create, 0, it)
         if RUN_PVEC:
           bench("arr_create", PVEC, pvec_arr_create, 0, it)
         if RUN_PERSVECTOR:
@@ -76,20 +76,20 @@ proc run_benchmarks() =
 
         if RUN_MAPS:
           if RUN_DYN_VALUE:
-            bench("map_add_entry", IMVALUE, map_add_entry, sz, it)
-            bench("map_add_entry_multiple", IMVALUE, map_add_entry_multiple, sz, it)
-            bench("map_overwrite_entry", IMVALUE, map_overwrite_entry, sz, it)
-            bench("map_del_entry", IMVALUE, map_del_entry, sz, it)
-            bench("map_merge", IMVALUE, map_merge, sz, it)
-            bench("map_has_key_true", IMVALUE, map_has_key_true, sz, it)
-            bench("map_has_key_false", IMVALUE, map_has_key_false, sz, it)
-            bench("map_get_existing", IMVALUE, map_get_existing, sz, it)
-            bench("map_get_non_existing", IMVALUE, map_get_non_existing, sz, it)
-            bench("map_iter_keys", IMVALUE, map_iter_keys, sz, it)
-            bench("map_iter_values", IMVALUE, map_iter_values, sz, it)
-            bench("map_iter_entries", IMVALUE, map_iter_entries, sz, it)
-            bench("map_equal_true", IMVALUE, map_equal_true, sz, it)
-            bench("map_equal_false", IMVALUE, map_equal_false, sz, it)
+            bench("map_add_entry", DYNVALUE, map_add_entry, sz, it)
+            bench("map_add_entry_multiple", DYNVALUE, map_add_entry_multiple, sz, it)
+            bench("map_overwrite_entry", DYNVALUE, map_overwrite_entry, sz, it)
+            bench("map_del_entry", DYNVALUE, map_del_entry, sz, it)
+            bench("map_merge", DYNVALUE, map_merge, sz, it)
+            bench("map_has_key_true", DYNVALUE, map_has_key_true, sz, it)
+            bench("map_has_key_false", DYNVALUE, map_has_key_false, sz, it)
+            bench("map_get_existing", DYNVALUE, map_get_existing, sz, it)
+            bench("map_get_non_existing", DYNVALUE, map_get_non_existing, sz, it)
+            bench("map_iter_keys", DYNVALUE, map_iter_keys, sz, it)
+            bench("map_iter_values", DYNVALUE, map_iter_values, sz, it)
+            bench("map_iter_entries", DYNVALUE, map_iter_entries, sz, it)
+            bench("map_equal_true", DYNVALUE, map_equal_true, sz, it)
+            bench("map_equal_false", DYNVALUE, map_equal_false, sz, it)
 
           if RUN_PMAP:
             bench("map_add_entry", PMAP, pmap_add_entry, sz, it)
@@ -125,15 +125,15 @@ proc run_benchmarks() =
 
         if RUN_ARRS:
           if RUN_DYN_VALUE:
-            bench("arr_push", IMVALUE, arr_push, sz, it)
-            bench("arr_pop", IMVALUE, arr_pop, sz, it)
-            bench("arr_slice", IMVALUE, arr_slice, sz, it)
-            bench("arr_get_existing", IMVALUE, arr_get_existing, sz, it)
-            bench("arr_get_non_existing", IMVALUE, arr_get_non_existing, sz, it)
-            bench("arr_set", IMVALUE, arr_set, sz, it)
-            bench("arr_iter", IMVALUE, arr_iter, sz, it)
-            bench("arr_equal_true", IMVALUE, arr_equal_true, sz, it)
-            bench("arr_equal_false", IMVALUE, arr_equal_false, sz, it)
+            bench("arr_push", DYNVALUE, arr_push, sz, it)
+            bench("arr_pop", DYNVALUE, arr_pop, sz, it)
+            bench("arr_slice", DYNVALUE, arr_slice, sz, it)
+            bench("arr_get_existing", DYNVALUE, arr_get_existing, sz, it)
+            bench("arr_get_non_existing", DYNVALUE, arr_get_non_existing, sz, it)
+            bench("arr_set", DYNVALUE, arr_set, sz, it)
+            bench("arr_iter", DYNVALUE, arr_iter, sz, it)
+            bench("arr_equal_true", DYNVALUE, arr_equal_true, sz, it)
+            bench("arr_equal_false", DYNVALUE, arr_equal_false, sz, it)
 
           if RUN_PVEC:
             bench("arr_push", PVEC, pvec_arr_push, sz, it)
