@@ -6,7 +6,7 @@ import ./common
 proc setup_seq_of_arrs*(sz, it, offset: int): seq[Value] =
   var i_off, k: int
   var
-    a: VVec
+    a: Value
     s: seq[Value]
   for i in 0..<it:
     i_off = i + offset

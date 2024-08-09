@@ -240,11 +240,6 @@ else:
     VSet* = MaskedRef[VSetPayload]
     VSym* = MaskedRef[VSymPayload]
 
-type
-  ImSV* = VNil or VBool
-  ImHV* = VStr or VVec or VMap or VSet or VSym
-  ImV* = ImSV or ImHV
-
 # Forward Declarations #
 # ---------------------------------------------------------------------
 
@@ -258,11 +253,6 @@ func `==`*(v1, v2: VMap): bool
 func `==`*(v1, v2: VVec): bool
 func `==`*(v1, v2: VSet): bool
 func `==`*(v1, v2: VSym): bool
-func `==`*(v1, v2: ImHV): bool
-func `==`*(v1, v2: ImSV): bool
-func `==`*(v1, v2: ImV): bool
-func `==`*(v: ImV, f: float64): bool
-func `==`*(f: float64, v: ImV): bool
 
 ## Import the `==` of the persistent collections so that they can "see" the
 ## forward declarations of this module.
@@ -295,13 +285,13 @@ template as_sym*(v: typed): VSym = cast[VSym](cast[uint64](v))
 # ---------------------------------------------------------------------
 
 template v*(x: Value): Value = x
+template v*(x: VBool): Value = x.as_v
 template v*(x: VStr): Value = x.as_v
 template v*(x: VSet): Value = x.as_v
 template v*(x: VVec): Value = x.as_v
 template v*(x: VMap): Value = x.as_v
 template v*(x: VSym): Value = x.as_v
 template v*(x: VNil): Value = x.as_v
-template v*(x: VBool): Value = x.as_v
 
 # A couple of forward declarations for the conversions
 proc init_string*(s: string = ""): VStr
@@ -553,18 +543,6 @@ func `==`*(v1, v2: VSet): bool =
 func `==`*(v1, v2: VSym): bool =
   return v1.payload.id == v2.payload.id
 
-func `==`*(v1, v2: ImHV): bool = eq_heap_value_generic(v1, v2)
-func `==`*(v1, v2: ImSV): bool = return v1.as_u64 == v2.as_u64
-  
-func `==`*(v1, v2: ImV): bool =
-  if bitand(MASK_HEAP, v1.type_bits) == MASK_HEAP: eq_heap_value_generic(v1, v2)
-  else: return v1.as_u64 == v2.as_u64
-func `==`*(v: ImV, f: float64): bool = return v == f.as_v
-func `==`*(f: float64, v: ImV): bool = return v == f.as_v
-
-template `==`*(v1: Value, v2: ImV): bool = v1.as_v == v2.as_v
-template `==`*(v1: ImV, v2: Value): bool = v1.as_v == v2.as_v
-
 proc `<`*(a, b: Value): bool
 proc `<=`*(a, b: Value): bool
 
@@ -596,9 +574,7 @@ converter toBool*(b: VBool): bool = b == True
 # ---------------------------------------------------------------------
 
 proc to_hex*(f: float64): string = return toHex(f.as_u64)
-proc to_hex*(v: ImV): string = return toHex(v.as_u64)
 proc to_hex*(v: Value): string = return toHex(v.as_u64)
-proc to_bin_str*(v: ImV): string = return toBin(v.as_i64, 64)
 proc to_bin_str*(v: Value): string = return toBin(v.as_i64, 64)
 proc to_bin_str*(v: uint32): string = return toBin(v.as_i64, 32)
 proc to_bin_str*(v: int32): string = return toBin(v.as_i64, 32)

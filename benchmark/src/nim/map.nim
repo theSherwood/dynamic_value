@@ -4,7 +4,7 @@ import ./common
 
 proc setup_seq_of_maps*(sz, it, offset: int): seq[Value] =
   var i_off, k: int
-  var m: VMap
+  var m: Value
   for i in 0..<it:
     i_off = i + offset
     m = Map {i_off: i_off}
@@ -14,7 +14,7 @@ proc setup_seq_of_maps*(sz, it, offset: int): seq[Value] =
     result.add(m.v)
 template setup_seq_of_maps*(sz, it: int): seq[Value] = setup_seq_of_maps(sz, it, 0)
 
-proc force_copy*(m: VMap): VMap =
+proc force_copy*(m: Value): Value =
   let sz = m.size
   result = m.set(-1, -1).del(-1)
   if result.size != sz:

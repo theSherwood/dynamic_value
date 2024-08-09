@@ -9,7 +9,7 @@ import ./src/nim/pvec as pvec
 import ./src/nim/pmap as pmap
 import ../src/values
 
-const RUN_IMVALUE    = true
+const RUN_DYN_VALUE    = true
 const RUN_PARAZOA    = true
 const RUN_PERSVECTOR = true
 const RUN_PVEC       = true
@@ -33,7 +33,7 @@ proc output_results() =
   for tr in csv_rows:
     tr.to_row.write_row
 
-const IMVALUE    = "im_value"
+const IMVALUE    = "dyn_value"
 const PVEC       = "pvec"
 const PMAP       = "pmap"
 const PARAZOA    = "parazoa"
@@ -51,7 +51,7 @@ proc run_benchmarks() =
   block:
     for it in [10, 100, 1000]:
       if RUN_MAPS:
-        if RUN_IMVALUE:
+        if RUN_DYN_VALUE:
           bench("map_create", IMVALUE, map_create, 0, it)
         if RUN_PARAZOA:
           bench("map_create", PARAZOA, parazoa_map_create, 0, it)
@@ -59,7 +59,7 @@ proc run_benchmarks() =
           bench("map_create", PMAP, pmap_create, 0, it)
 
       if RUN_ARRS:
-        if RUN_IMVALUE:
+        if RUN_DYN_VALUE:
           bench("arr_create", IMVALUE, arr_create, 0, it)
         if RUN_PVEC:
           bench("arr_create", PVEC, pvec_arr_create, 0, it)
@@ -75,7 +75,7 @@ proc run_benchmarks() =
         # echo "it: ", it, " sz: ", sz
 
         if RUN_MAPS:
-          if RUN_IMVALUE:
+          if RUN_DYN_VALUE:
             bench("map_add_entry", IMVALUE, map_add_entry, sz, it)
             bench("map_add_entry_multiple", IMVALUE, map_add_entry_multiple, sz, it)
             bench("map_overwrite_entry", IMVALUE, map_overwrite_entry, sz, it)
@@ -124,7 +124,7 @@ proc run_benchmarks() =
             bench("map_equal_false", PARAZOA, parazoa_map_equal_false, sz, it)
 
         if RUN_ARRS:
-          if RUN_IMVALUE:
+          if RUN_DYN_VALUE:
             bench("arr_push", IMVALUE, arr_push, sz, it)
             bench("arr_pop", IMVALUE, arr_pop, sz, it)
             bench("arr_slice", IMVALUE, arr_slice, sz, it)
