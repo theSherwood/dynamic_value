@@ -1,5 +1,5 @@
 import std/[tables, strutils]
-import ../src/[test_utils, values]
+import ../src/[test_utils, value]
 
 ##[
   TODO

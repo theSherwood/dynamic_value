@@ -1,6 +1,6 @@
 # import std/[math, algorithm, strutils, strformat, sequtils, tables]
 import std/[sequtils]
-import ../../../src/[values]
+import ../../../src/[value]
 import ./common
 
 proc setup_seq_of_arrs*(sz, it, offset: int): seq[Value] =

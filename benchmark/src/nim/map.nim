@@ -1,5 +1,5 @@
 import std/[sequtils]
-import ../../../src/[values]
+import ../../../src/[value]
 import ./common
 
 proc setup_seq_of_maps*(sz, it, offset: int): seq[Value] =

@@ -7,7 +7,7 @@ import ./src/nim/parazoa/map as para_map
 import ./src/nim/nim_persistent_vector/arr as pers_arr
 import ./src/nim/pvec as pvec
 import ./src/nim/pmap as pmap
-import ../src/values
+import ../src/value
 
 const RUN_DYN_VALUE    = true
 const RUN_PARAZOA    = true

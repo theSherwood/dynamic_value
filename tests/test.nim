@@ -1,8 +1,8 @@
 from ../src/test_utils import failures
-from values import nil
+from value import nil
 
 # Run tests
-values.main()
+value.main()
 
 when defined(wasm):
   if failures > 0: raise newException(AssertionDefect, "Something failed.")
