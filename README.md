@@ -19,10 +19,10 @@ let
   true_value  = True
   false_value = False
 
-  str_val2 = V "This is another string"
-  vec_val2 = V [1, 2.7, Nil, "foo"]
-  set_val2 = V {1, 2.7, Nil, "foo"}
-  map_val2 = V {1: "foo", 2.7: 1, "foo": 1}
+  str_val2    = V "This is another string"
+  vec_val2    = V [1, 2.7, Nil, "foo"]
+  set_val2    = V {1, 2.7, Nil, "foo"}
+  map_val2    = V {1: "foo", 2.7: 1, "foo": 1}
 ```
 
 Refer to the tests for additional usage code.
@@ -35,22 +35,10 @@ Refer to the tests for additional usage code.
 ./run.sh -tu native
 ```
 
-OR
-
-```sh
-wach -o "src/**" "./run.sh -tu native"
-```
-
 ### Test Native
 
 ```sh
 ./run.sh -tur native
-```
-
-OR
-
-```sh
-wach ./run.sh -tur native
 ```
 
 ### Test Wasm in Node
@@ -59,18 +47,12 @@ wach ./run.sh -tur native
 ./run.sh -tur node32
 ```
 
-OR
-
-```sh
-wach -o "src/**" "./run.sh -tur node32"
-```
-
 ### Test Wasm in Browser
 
 Compile wasm:
 
 ```sh
-wach -o "src/**" "./run.sh -tu browser32"
+./run.sh -tur browser32
 ```
 
 Start the server:
@@ -81,11 +63,6 @@ dev start
 
 Go to http://localhost:3000/
 
-OR
-
-```sh
-./run.sh -tur browser32
-```
 
 ### Benchmark
 
@@ -99,14 +76,14 @@ The static type is `Value`, and it uses 64 bits to encode several dynamic values
 
 Currently supported types:
 
-- Bool
-- Nil
-- Num      - 64-bit float
-- Str
-- Vec
-- Map
-- Set
-- Sym      - unique reference value
+- `Bool`
+- `Nil`
+- `Num`      - 64-bit float
+- `Str`
+- `Vec`
+- `Map`
+- `Set`
+- `Sym`      - unique reference value
 
 All the types currently supported are immutable. Collection types are persistent data structures. All types currently supported are compared by value with the exception of `Sym`, which is a unique reference type. `Str` is just a thin wrapper over Nimskull `string`. There is currently no support for mutable types.
 
